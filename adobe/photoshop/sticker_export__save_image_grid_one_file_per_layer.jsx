@@ -3,6 +3,8 @@ Export all the layers from PSD in order. // Export image grid from Photoshop
 Use for saving sticker packs in psd where every sticker is on a separate layer
 and the images are visually arranged in a grid.
 
+WARNING: When saving images the window blinks a lot. Use with caution.
+
 Created by @amasoken on 4 Dec 2023
 *********************************************************/
 
@@ -72,10 +74,11 @@ function saveLayers(layers) {
     exportOptions.PNG8 = false;
     exportOptions.transparency = true;
 
-    var layerCount = 0;
+    var layerCount = 1;
 
     for (var i = 0; i < layers.length; i++) {
         var layer = layers[i];
+        currentDoc.activeLayer = layer; // visual progress indicaton, nothing more
 
         var position = getLayerPosition(layer);
         var width = position.x2 - position.x1;

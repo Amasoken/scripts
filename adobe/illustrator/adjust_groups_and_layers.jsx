@@ -135,7 +135,7 @@ function makeAllLayersVisible(layers) {
     }
 }
 
-function makeVisible(item) {
+function setVisibility(item) {
     if (item.visible === false) item.visible = true;
     if (item.hidden === true) item.hidden = false;
 }
