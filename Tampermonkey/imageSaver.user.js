@@ -1,12 +1,14 @@
 // ==UserScript==
 // @name         Open/save images with RMB without prompt on Gelbooru/Danbooru/etc
 // @namespace    https://github.com/Amasoken/scripts
-// @version      0.25
+// @version      0.26
 // @description  interact with images using RMB and modifier keys
 // @author       Amasoken
 // @match        http*://*/*
 // @grant        GM_download
 // @license      MIT
+// @downloadURL  https://github.com/Amasoken/scripts/raw/master/Tampermonkey/imageSaver.user.js
+// @updateURL    https://github.com/Amasoken/scripts/raw/master/Tampermonkey/imageSaver.user.js
 // ==/UserScript==
 
 /*
@@ -38,8 +40,26 @@ shift + RMB: Close the tab.
     const DEFAULT_DOWNLOAD_NAME = 'download';
     const AVAILABLE_EXTENSIONS = ['gif', 'ico', 'jpeg', 'jpg', 'png', 'webp'];
 
+    // sites as pixiv will block requests with no refferer with 403 error, so keep the refferer for these
+    const KEEP_REFFERER_ORIGINS_LIST = ['https://www.pixiv.net'];
+
     const isTargetImage = (e) => e.target.tagName === 'IMG' && e.target.src;
     const isImageOnlyPage = Boolean(document.body) && document.querySelector('body img') === document.body.lastChild;
+
+    // === last resort CORS hack check ===
+    // when site stores images on a different domain, CORS might prevent fetch from downloading the image
+    // add a query string param, open in the new tab, then try to download:
+    const CORS_HACK_PARAM = 'abcdef'; // query param to check for.
+
+    if (window.location.search.includes(CORS_HACK_PARAM + '=')) {
+        if (document.querySelector('body img')?.src === window.location.href) {
+            console.log('CORS hack query param detected, trying to download...');
+            const shouldCloseTab = true;
+            saveImage(window.location.href, shouldCloseTab);
+        }
+    }
+
+    // === end of hack check ===
 
     document.addEventListener(
         'contextmenu',
@@ -88,12 +108,16 @@ shift + RMB: Close the tab.
         }
     }
 
-    function openInNewTab(imageUrl) {
-        const link = document.createElement('a');
-        link.href = imageUrl;
-        link.target = '_blank';
-        link.rel = 'noreferrer noopener';
-        link.click();
+    function openInNewTab(imageUrl, keepRef = false) {
+        const a = document.createElement('a');
+        a.href = imageUrl;
+        a.target = '_blank';
+
+        if (!keepRef || !KEEP_REFFERER_ORIGINS_LIST.includes(window.location.origin)) {
+            a.rel = 'noreferrer noopener';
+        }
+
+        a.click();
     }
 
     function openInNewWindow(imageUrl) {
@@ -149,6 +173,14 @@ shift + RMB: Close the tab.
         a.download = name;
 
         a.click();
+        a.remove();
+    }
+
+    function saveImageWithACrossOriginHack(url) {
+        const imageUrl = new URL(url);
+        imageUrl.searchParams.append(CORS_HACK_PARAM, '');
+
+        openInNewTab(imageUrl, true);
     }
 
     function isSameOrigin(link1, link2) {
@@ -160,26 +192,57 @@ shift + RMB: Close the tab.
 
     function saveImage(url, shouldCloseTab) {
         const fileName = getFileName(url);
+        console.log('Trying to save image', { fileName, url });
 
         // for same origin download with A tag since it's faster than waiting for onload
         if (isSameOrigin(window.location.href, url)) {
+            console.log('Same origin, using <a> element');
             saveImageWithA(url, fileName);
             if (shouldCloseTab) closeWindow();
         } else {
+            console.log('Cross origin, using GM_download');
             GM_download({
                 url,
                 name: fileName,
-                onload: () => shouldCloseTab && closeWindow(),
+                onload: () => {
+                    console.log('Success');
+                    shouldCloseTab && closeWindow();
+                },
                 onerror: (error) => {
                     console.log('GM_download error: ', error);
 
                     if (error.error === 'not_whitelisted') {
                         // possibly webp
+                        console.log('Image is possibly webp, trying download with <a> element');
                         saveImageWithA(url, fileName);
                         if (shouldCloseTab) closeWindow();
+                    } else {
+                        console.log('As a last resort, trying to download image in a new tab to avoid CORS');
+                        saveImageWithACrossOriginHack(url);
                     }
                 },
             });
         }
     }
 })();
+
+// POSSIBLE HACK FOR CORS
+// Download using CORS proxy.
+// Requires CORS proxy server running somewhere, such as cors-anywhere.
+// Might be useful on sites like pixiv that store image on a different domain.
+//
+// function saveImageWithProxyCORS(url, name) {
+//     fetch('//cors-anywhere.yourdomain.com/' + url)
+//         .then((res) => res.blob())
+//         .then((blob) => {
+//             const blobUrl = URL.createObjectURL(blob);
+//             saveImageWithA(blobUrl, name);
+//             // URL.revokeObjectURL(blobUrl);
+//         })
+//         .catch((error) => console.log('Error downloading with fetch:', error));
+// }
+
+// ANOTHER POSSIBLE HACK is using canvas
+// Create Image element, paint it on canvas, get data url, save using <a> tag.
+// That's probably not the same image as it might be encoded differently,
+// but still might be useful in some cases.
