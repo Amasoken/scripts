@@ -7,12 +7,15 @@ Created by @amasoken on 05 Jul 2022
 // app.userInteractionLevel = UserInteractionLevel.DONTDISPLAYALERTS;
 app.preferences.setBooleanPreference('ShowExternalJSXWarning', false);
 
+var NAME_REGEX = /Layer \d+|Folder \d+/;
+
 function main() {
     var doc = app.activeDocument;
 
     makeAllLayersVisible(doc.layers);
     while (removeLayersIndent(doc.layers)) {}
     while (removeEmptyLayers(doc.layers)) {}
+    renameLayersAndGroups(doc.layers);
 }
 
 main();
@@ -24,6 +27,8 @@ function getElementsCount(layer) {
     totalLayers += (layer.layers && layer.layers.length) || 0;
     totalLayers += (layer.groupItems && layer.groupItems.length) || 0;
     totalLayers += (layer.pathItems && layer.pathItems.length) || 0;
+
+    return totalLayers;
 }
 
 function handleSubLayer(layer) {
@@ -130,7 +135,7 @@ function makeAllLayersVisible(layers) {
     }
 }
 
-function makeVisible(item) {
+function setVisibility(item) {
     if (item.visible === false) item.visible = true;
     if (item.hidden === true) item.hidden = false;
 }
@@ -154,6 +159,31 @@ function checkLayer(layer) {
             var element = layer.groupItems[i];
             checkLayer(element);
         }
+    }
+}
+
+// ============================================================================
+
+function renameLayersAndGroups(layers) {
+    for (var i = 0; i < layers.length; i++) {
+        var layer = layers[i];
+        renameEntity(layer);
+
+        if (layer.layers && layer.layers.length) renameLayersAndGroups(layer.layers);
+        if (layer.groupItems && layer.groupItems.length) renameLayersAndGroups(layer.groupItems);
+    }
+}
+
+function renameEntity(entity) {
+    if ((NAME_REGEX.test(entity.name) || !entity.name) && entity.parent && entity.parent.name) {
+        entity.name = entity.parent.name;
+    }
+}
+
+function renameItems(items) {
+    for (var i = 0; i < items.length; i++) {
+        var item = items[i];
+        renameEntity(item);
     }
 }
 
