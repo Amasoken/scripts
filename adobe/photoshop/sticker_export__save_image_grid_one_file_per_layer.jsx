@@ -8,35 +8,97 @@ WARNING: When saving images the window blinks a lot. Use with caution.
 Created by @amasoken on 4 Dec 2023
 *********************************************************/
 
-var LAYER_PADDING = {
-    x: 20,
-    y: 20,
-};
-
 function main() {
     var doc = app.activeDocument;
 
-    setVisibilityForAllLayers(doc, true);
-
-    if (confirm('NEED REORDER? As in changing layer positions/order?')) {
-        var allLayers = getAllLayers(doc);
-        var layerRows = getLayerRows(allLayers); // intersecting images in a row, array of arrays
-
-        if (confirm('ALIGN IMAGES TO GRID? This will adjust layer positions to match a grid.')) {
-            translateLayersByGrid(layerRows);
+    promptForSettings(function (params) {
+        if (!params) {
+            return;
         }
 
-        if (confirm('REORDER LAYERS? This will match layer placement with the visual order.')) {
-            orderLayersByGrid(layerRows);
+        if (params.makeLayersVisible) {
+            setVisibilityForAllLayers(doc, true);
         }
-    }
 
-    if (confirm('SAVE EACH LAYER as a separate png?')) {
-        saveLayers(getAllLayers(doc));
-    }
+        if (params.changeLayerOrder || params.alignImagesToGrid) {
+            var allLayers = getAllLayers(doc);
+            var layerRows = getLayerRows(allLayers); // intersecting images in a row, array of arrays
+
+            if (params.alignImagesToGrid) translateLayersByGrid(layerRows, params.padding);
+            if (params.changeLayerOrder) orderLayersByGrid(layerRows);
+        }
+
+        if (params.exportPNGs) {
+            saveLayers(getAllLayers(doc));
+        }
+    });
 }
 
 main();
+
+// ============================================================================
+
+function promptForSettings(cb) {
+    var params = {
+        padding: 20,
+        makeLayersVisible: true,
+        alignImagesToGrid: true,
+        changeLayerOrder: true,
+        exportPNGs: false,
+    };
+
+    var dialog = new Window('dialog', 'Parameters');
+    dialog.alignChildren = 'left';
+
+    dialog.add('statictext', undefined, 'Grid padding:');
+    var inputField1 = dialog.add('edittext');
+    inputField1.text = params.padding;
+    inputField1.characters = 10;
+
+    function addCheckbox(label, value) {
+        var checkbox = dialog.add('checkbox', undefined, label);
+        checkbox.value = value;
+
+        return checkbox;
+    }
+
+    var checkboxCollection = {
+        makeLayersVisible: addCheckbox('MAKE ALL LAYERS VISIBLE (recommended)', params.makeLayersVisible),
+        alignImagesToGrid: addCheckbox('ALIGN LAYERS TO GRID (change coordinates)', params.alignImagesToGrid),
+        changeLayerOrder: addCheckbox('REORDER LAYERS. Row by row, left to right', params.changeLayerOrder),
+        exportPNGs: addCheckbox('SAVE EACH LAYER as a separate PNG', params.exportPNGs),
+    };
+
+    var buttonGroup = dialog.add('group');
+    buttonGroup.alignment = 'right';
+    var okButton = buttonGroup.add('button', undefined, 'OK');
+    var cancelButton = buttonGroup.add('button', undefined, 'Cancel');
+
+    okButton.onClick = function () {
+        var paddingValue = parseInt(inputField1.text);
+
+        if (!isNaN(paddingValue) && paddingValue >= 0) {
+            params.padding = paddingValue;
+
+            params.makeLayersVisible = checkboxCollection.makeLayersVisible.value;
+            params.alignImagesToGrid = checkboxCollection.alignImagesToGrid.value;
+            params.changeLayerOrder = checkboxCollection.changeLayerOrder.value;
+            params.exportPNGs = checkboxCollection.exportPNGs.value;
+
+            dialog.close();
+            cb(params);
+        } else {
+            alert('Invalid input. Please enter valid numbers (padding >= 0, columns >= 1).');
+        }
+    };
+
+    cancelButton.onClick = function () {
+        dialog.close();
+        cb(null);
+    };
+
+    dialog.show();
+}
 
 // ============================================================================
 
@@ -186,15 +248,15 @@ function getLayerPosition(layer) {
 // ============================================================================
 
 // Change layers' position (coordinates)
-function translateLayersByGrid(layerRows) {
+function translateLayersByGrid(layerRows, padding) {
     var startingPosition = getLayerPosition(layerRows[0][0]);
     var layerSize = {
         x: startingPosition.x2 - startingPosition.x1,
         y: startingPosition.y2 - startingPosition.y1,
     };
     var spacePerLayer = {
-        x: layerSize.x + LAYER_PADDING.x,
-        y: layerSize.y + LAYER_PADDING.y,
+        x: layerSize.x + padding,
+        y: layerSize.y + padding,
     };
 
     for (var i = 0; i < layerRows.length; i++) {
