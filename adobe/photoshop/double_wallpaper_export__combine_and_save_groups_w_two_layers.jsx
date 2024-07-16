@@ -24,9 +24,14 @@ function main() {
         }
 
         var wallpaperGroups = validateGroups(doc);
-        reorderGroups(wallpaperGroups);
 
-        arrangeWallpaperGroups(wallpaperGroups, params);
+        if (params.arrangeWallpaperGroups) {
+            arrangeWallpaperGroups(wallpaperGroups, params);
+        }
+
+        if (params.reorderGroups) {
+            reorderGroups(wallpaperGroups);
+        }
 
         if (params.exportWallpapers) {
             exportWallpapers(wallpaperGroups);
@@ -46,6 +51,8 @@ function promptForSettings(cb) {
         },
         deleteEmpty: false,
         exportWallpapers: false,
+        reorderGroups: true,
+        arrangeWallpaperGroups: true,
     };
 
     var dialog = new Window('dialog', 'Parameters');
@@ -64,6 +71,12 @@ function promptForSettings(cb) {
     var checkboxDeleteEmpty = dialog.add('checkbox', undefined, 'Delete empty groups!');
     checkboxDeleteEmpty.value = params.deleteEmpty;
 
+    var checkboxArrangeWallpaperGroups = dialog.add('checkbox', undefined, 'Arrange layers position');
+    checkboxArrangeWallpaperGroups.value = params.arrangeWallpaperGroups;
+
+    var checkboxReorderGroups = dialog.add('checkbox', undefined, 'Reorder layers to match with visual placement');
+    checkboxReorderGroups.value = params.reorderGroups;
+
     var checkboxExportImages = dialog.add('checkbox', undefined, 'Export wallpapers as PNG');
     checkboxExportImages.value = params.exportWallpapers;
 
@@ -81,6 +94,8 @@ function promptForSettings(cb) {
             params.spacing.columns = columnsValue;
             params.deleteEmpty = checkboxDeleteEmpty.value;
             params.exportWallpapers = checkboxExportImages.value;
+            params.reorderGroups = checkboxReorderGroups.value;
+            params.arrangeWallpaperGroups = checkboxArrangeWallpaperGroups.value;
 
             dialog.close();
             cb(params);
@@ -226,9 +241,11 @@ function validateGroups(entity) {
 
     groupInvalidLayers(invalidLayers);
 
-    validGroups.sort(function (a, b) {
-        return a.bounds[1].value - b.bounds[1].value;
-    });
+    // TODO preserve visual order when needed?
+    // right now it's just sorted by layer order
+    // validGroups.sort(function (a, b) {
+    //     return a.bounds[1].value - b.bounds[1].value;
+    // });
 
     return validGroups;
 }
@@ -251,6 +268,7 @@ function groupInvalidLayers(layers) {
     //
     // Hack: add a group inside of a group with .add(), place other groups BEFORE your temporary group, then remove it
     var anchor = invalidGroupContainer.layerSets.add();
+    anchor.name = 'TEMP_ANCHOR_FOR_MOVING_GROUPS';
 
     for (var i = 0; i < layers.length; i++) {
         var layerSet = layers[i];
@@ -270,9 +288,9 @@ function reorderGroups(groups) {
     for (var i = 0; i < groups.length; i++) {
         orderImages(groups[i].artLayers);
 
-        if (i > 0) {
-            groups[i].move(groups[i - 1], ElementPlacement.PLACEAFTER);
-        }
+        // if (i > 0) {
+        //     groups[i].move(groups[i - 1], ElementPlacement.PLACEAFTER);
+        // }
     }
 }
 
@@ -294,10 +312,15 @@ function arrangeWallpaperGroups(groups, params) {
 
     for (var i = 0; i < groups.length; i++) {
         var layers = groups[i].artLayers;
+
         var posLayer1 = getLayerPosition(layers[0]);
         var posLayer2 = getLayerPosition(layers[1]);
 
-        layers[1].translate(posLayer1.x2 - posLayer2.x1, posLayer1.y1 - posLayer2.y1);
+        if (posLayer1.x1 < posLayer2.x1) {
+            layers[1].translate(posLayer1.x2 - posLayer2.x1, posLayer1.y1 - posLayer2.y1);
+        } else {
+            layers[0].translate(posLayer2.x2 - posLayer1.x1, posLayer2.y1 - posLayer1.y1);
+        }
 
         var groupPos = getLayerPosition(groups[i]);
         var groupWidth = groupPos.x2 - groupPos.x1;
