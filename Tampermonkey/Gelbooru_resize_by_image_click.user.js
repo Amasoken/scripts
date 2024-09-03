@@ -1,10 +1,10 @@
 // ==UserScript==
 // @name         Gelbooru resize by image click
 // @namespace    https://github.com/Amasoken/scripts
-// @version      0.0.1
+// @version      0.0.2
 // @description  Click on the image to resize, instead of clicking 'resize' button.
 // @author       Amasoken
-// @match        https://gelbooru.com/index.php?page=post*
+// @match        https://gelbooru.com/index.php?page=post&s=view*
 // @icon         data:image/gif;base64,R0lGODlhAQABAAAAACH5BAEKAAEALAAAAAABAAEAAAICTAEAOw==
 // @grant        none
 // @license      MIT
@@ -18,12 +18,14 @@
     const handler = document.querySelector('#resize-link')?.children[0].onclick;
     const imageElement = document.querySelector('#image');
 
+    const onClickPrev = imageElement?.onclick;
+
     if (handler && imageElement) {
         console.log('Setting handler...');
         try {
             imageElement.onclick = (event) => {
                 handler(event);
-                imageElement.onclick = undefined;
+                imageElement.onclick = onClickPrev;
             };
             console.log('Set onclick handler on the image...');
         } catch (error) {
