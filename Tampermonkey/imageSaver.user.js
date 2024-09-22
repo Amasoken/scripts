@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         Open/save images with RMB without prompt on Gelbooru/Danbooru/etc
 // @namespace    https://github.com/Amasoken/scripts
-// @version      0.26
+// @version      0.28
 // @description  interact with images using RMB and modifier keys
 // @author       Amasoken
 // @match        http*://*/*
@@ -40,6 +40,10 @@ shift + RMB: Close the tab.
     const DEFAULT_DOWNLOAD_NAME = 'download';
     const AVAILABLE_EXTENSIONS = ['gif', 'ico', 'jpeg', 'jpg', 'png', 'webp'];
 
+    const ENABLE_RMB_SHORTCUTS = true;
+    const DBLCLK_SAVE_WHEN_LOWER_THEN = 300;
+    const DBLCLK_IGNORE_WHEN_HIGHER_THAN = 800;
+
     // sites as pixiv will block requests with no refferer with 403 error, so keep the refferer for these
     const KEEP_REFFERER_ORIGINS_LIST = ['https://www.pixiv.net'];
 
@@ -61,27 +65,63 @@ shift + RMB: Close the tab.
 
     // === end of hack check ===
 
+    const clicks = {
+        prev: null,
+        next: null,
+    };
+
+    function oneHandClick(e) {
+        clicks.prev = clicks.next;
+        clicks.next = e;
+        const { prev, next } = clicks;
+        const clickMargin = 5;
+
+        if (prev && next) {
+            if (prev.screenX - next.screenX <= clickMargin && prev.screenY - next.screenY <= clickMargin) {
+                const diff = next.timeStamp - prev.timeStamp;
+
+                if (diff < DBLCLK_SAVE_WHEN_LOWER_THEN) {
+                    tryImgEvent(e, { altKey: true });
+                    return true;
+                } else if (diff < DBLCLK_IGNORE_WHEN_HIGHER_THAN) {
+                    tryImgEvent(e, { ctrlKey: true });
+                    return true;
+                }
+            }
+        }
+    }
+
+    function tryImgEvent(e, overrides = null) {
+        let imageElement = isTargetImage(e) ? e.target : e.target.querySelector('img');
+        if (imageElement) {
+            e.preventDefault();
+            handleImageClick(e, imageElement, overrides);
+            return false;
+        }
+    }
+
     document.addEventListener(
         'contextmenu',
         (e) => {
+            if (ENABLE_RMB_SHORTCUTS && oneHandClick(e)) {
+                return false;
+            }
+
             const { ctrlKey, altKey, shiftKey } = e;
 
             if (ctrlKey + altKey + shiftKey) {
-                let imageElement = isTargetImage(e) ? e.target : e.target.querySelector('img');
-                if (imageElement) {
-                    e.preventDefault();
-                    handleImageClick(e, imageElement);
-                    return false;
-                }
+                return tryImgEvent(e);
             }
         },
         false
     );
 
-    function handleImageClick(e, imageElement = e.target) {
-        const { ctrlKey, altKey, shiftKey } = e;
+    function handleImageClick(e, imageElement = e.target, overrides = null) {
+        const { ctrlKey = false, altKey = false, shiftKey = false } = overrides ?? e;
         const isSingleKeyPressed = ctrlKey + altKey + shiftKey === 1;
         if (!isSingleKeyPressed) return;
+
+        console.log('Click with keys detected: ', { ctrlKey, altKey, shiftKey });
 
         // ctrl + RMB click
         if (ctrlKey) {

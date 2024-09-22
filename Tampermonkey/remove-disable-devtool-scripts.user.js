@@ -1,28 +1,25 @@
 // ==UserScript==
 // @name         Remove disable-devtools scripts
 // @namespace    https://github.com/Amasoken/scripts
-// @version      0.1
+// @version      0.2
 // @description  Remove scripts with certain address or keyword
 // @author       Amasoken
 // @match        http*://*
 // @icon         data:image/gif;base64,R0lGODlhAQABAAAAACH5BAEKAAEALAAAAAABAAEAAAICTAEAOw==
 // @grant        none
+// @downloadURL  https://github.com/Amasoken/scripts/raw/master/Tampermonkey/remove-disable-devtool-scripts.user.js
+// @updateURL    https://github.com/Amasoken/scripts/raw/master/Tampermonkey/remove-disable-devtool-scripts.user.js
 // @run-at       document-start
-// @license      MIT
 // ==/UserScript==
-
-// Just some testing here
-// Removing scripts that block mouse clicks and devtools
 
 (function () {
     'use strict';
 
     const SCRIPT_TEXT_FILTER = ['DisableDevtool', 'DevtoolsDetector', 'adblock', 'devtool'];
-    SCRIPT_TEXT_FILTER.push('AdSense', 'contextmenu');
+    SCRIPT_TEXT_FILTER.push('AdSense', 'contextmenu', '_ads');
 
     const SCRIPT_SRC_FILTER = ['disable-devtool', 'devtools-detector', 'detect2'];
-
-    const filterScript = (scriptNode, attribute, filter) => {
+    function filterScript(scriptNode, attribute, filter) {
         //<script>, 'src', ['keyword', 'keyword']
         for (const word of filter) {
             if (scriptNode[attribute].includes(word)) {
@@ -33,7 +30,7 @@
         }
 
         return false;
-    };
+    }
 
     new MutationObserver((mutations) => {
         for (const mutation of mutations) {
