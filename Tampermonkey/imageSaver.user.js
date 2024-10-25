@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         Open/save images with RMB without prompt on Gelbooru/Danbooru/etc
 // @namespace    https://github.com/Amasoken/scripts
-// @version      0.28
+// @version      0.29
 // @description  interact with images using RMB and modifier keys
 // @author       Amasoken
 // @match        http*://*/*
@@ -186,6 +186,11 @@ shift + RMB: Close the tab.
         if (splitFileName.length > 1) {
             ext = splitFileName.pop();
             name = splitFileName.join('.');
+        }
+
+        // tw*tter
+        if (!ext && url.includes('twimg.com')){
+            ext = url.split('format=').at(-1).split('&')[0];
         }
 
         // check if extension is correct and not just a part of file name, like in 'file.name'
