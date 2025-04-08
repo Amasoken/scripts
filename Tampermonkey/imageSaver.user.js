@@ -43,6 +43,7 @@ shift + RMB: Close the tab.
     const ENABLE_RMB_SHORTCUTS = true;
     const DBLCLK_SAVE_WHEN_LOWER_THEN = 300;
     const DBLCLK_IGNORE_WHEN_HIGHER_THAN = 800;
+    const DBLCLK_MARGIN = 10;
 
     // sites as pixiv will block requests with no refferer with 403 error, so keep the refferer for these
     const KEEP_REFFERER_ORIGINS_LIST = ['https://www.pixiv.net'];
@@ -74,10 +75,12 @@ shift + RMB: Close the tab.
         clicks.prev = clicks.next;
         clicks.next = e;
         const { prev, next } = clicks;
-        const clickMargin = 5;
 
         if (prev && next) {
-            if (prev.screenX - next.screenX <= clickMargin && prev.screenY - next.screenY <= clickMargin) {
+            const diffX = Math.abs(prev.pageX - next.pageX);
+            const diffY = Math.abs(prev.pageY - next.pageY);
+
+            if (diffX <= DBLCLK_MARGIN && diffY <= DBLCLK_MARGIN) {
                 const diff = next.timeStamp - prev.timeStamp;
 
                 if (diff < DBLCLK_SAVE_WHEN_LOWER_THEN) {
