@@ -46,7 +46,7 @@ shift + RMB: Close the tab.
     const DBLCLK_MARGIN = 10;
 
     // sites as pixiv will block requests with no refferer with 403 error, so keep the refferer for these
-    const KEEP_REFFERER_ORIGINS_LIST = ['https://www.pixiv.net'];
+    const KEEP_REFFERER_ORIGINS_LIST = ['https://www.pixiv.net', 'https://hitomi.la'];
 
     const isTargetImage = (e) => e.target.tagName === 'IMG' && e.target.src;
     const isImageOnlyPage = Boolean(document.body) && document.querySelector('body img') === document.body.lastChild;
@@ -129,6 +129,7 @@ shift + RMB: Close the tab.
         // ctrl + RMB click
         if (ctrlKey) {
             e.stopPropagation();
+            e.preventDefault();
             if (isImageOnlyPage) {
                 closeWindow();
             } else {
@@ -140,12 +141,14 @@ shift + RMB: Close the tab.
         if (altKey) {
             const shouldCloseTab = isImageOnlyPage;
             e.stopPropagation();
+            e.preventDefault();
             saveImage(imageElement.src, shouldCloseTab);
         }
 
         // shift + RMB click
-        if (isSingleKeyPressed && shiftKey) {
+        if (shiftKey) {
             e.stopPropagation();
+            e.preventDefault();
             !isImageOnlyPage && openInNewWindow(imageElement.src);
             isImageOnlyPage && closeWindow();
         }
@@ -156,7 +159,7 @@ shift + RMB: Close the tab.
         a.href = imageUrl;
         a.target = '_blank';
 
-        if (!keepRef || !KEEP_REFFERER_ORIGINS_LIST.includes(window.location.origin)) {
+        if (!keepRef && !KEEP_REFFERER_ORIGINS_LIST.includes(window.location.origin)) {
             a.rel = 'noreferrer noopener';
         }
 
