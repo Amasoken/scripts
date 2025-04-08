@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         Open/save images with RMB without prompt on Gelbooru/Danbooru/etc
 // @namespace    https://github.com/Amasoken/scripts
-// @version      0.29
+// @version      0.30
 // @description  interact with images using RMB and modifier keys
 // @author       Amasoken
 // @match        http*://*/*
@@ -221,6 +221,28 @@ shift + RMB: Close the tab.
         a.remove();
     }
 
+    function downloadImageWithFetch(url, name) {
+        return fetch(url)
+            .then((res) => res.blob())
+            .then((blob) => {
+                const urlObject = URL.createObjectURL(blob);
+                const a = document.createElement('a');
+                a.href = urlObject;
+                a.download = name;
+                document.body.appendChild(a);
+
+                a.click();
+                a.remove();
+                URL.revokeObjectURL(urlObject);
+
+                return true;
+            })
+            .catch((error) => {
+                console.error('Error downloading the file with fetch:', error);
+                return false;
+            });
+    }
+
     function saveImageWithACrossOriginHack(url) {
         const imageUrl = new URL(url);
         imageUrl.searchParams.append(CORS_HACK_PARAM, '');
@@ -245,27 +267,36 @@ shift + RMB: Close the tab.
             saveImageWithA(url, fileName);
             if (shouldCloseTab) closeWindow();
         } else {
-            console.log('Cross origin, using GM_download');
-            GM_download({
-                url,
-                name: fileName,
-                onload: () => {
-                    console.log('Success');
-                    shouldCloseTab && closeWindow();
-                },
-                onerror: (error) => {
-                    console.log('GM_download error: ', error);
+            // try fetch first, chances are it works fine without CORS
+            console.log('Cross origin. Trying to use fetch...');
+            downloadImageWithFetch(url, fileName).then((success) => {
+                if (success) {
+                    console.log('Done.');
+                    return;
+                }
 
-                    if (error.error === 'not_whitelisted') {
-                        // possibly webp
-                        console.log('Image is possibly webp, trying download with <a> element');
-                        saveImageWithA(url, fileName);
-                        if (shouldCloseTab) closeWindow();
-                    } else {
-                        console.log('As a last resort, trying to download image in a new tab to avoid CORS');
-                        saveImageWithACrossOriginHack(url);
-                    }
-                },
+                console.log('Cross origin, using GM_download');
+                GM_download({
+                    url,
+                    name: fileName,
+                    onload: () => {
+                        console.log('Success');
+                        shouldCloseTab && closeWindow();
+                    },
+                    onerror: (error) => {
+                        console.log('GM_download error: ', error);
+
+                        if (error.error === 'not_whitelisted') {
+                            // possibly webp
+                            console.log('Image is possibly webp, trying download with <a> element');
+                            saveImageWithA(url, fileName);
+                            if (shouldCloseTab) closeWindow();
+                        } else {
+                            console.log('As a last resort, trying to download image in a new tab to avoid CORS');
+                            saveImageWithACrossOriginHack(url);
+                        }
+                    },
+                });
             });
         }
     }
