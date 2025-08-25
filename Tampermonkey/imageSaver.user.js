@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         Open/save images with RMB without prompt on Gelbooru/Danbooru/etc
 // @namespace    https://github.com/Amasoken/scripts
-// @version      0.30
+// @version      0.33
 // @description  interact with images using RMB and modifier keys
 // @author       Amasoken
 // @match        http*://*/*
@@ -44,6 +44,8 @@ shift + RMB: Close the tab.
     const DBLCLK_SAVE_WHEN_LOWER_THEN = 300;
     const DBLCLK_IGNORE_WHEN_HIGHER_THAN = 800;
     const DBLCLK_MARGIN = 10;
+
+    const GALLERY_NAME_LIMIT = 110;
 
     // sites as pixiv will block requests with no refferer with 403 error, so keep the refferer for these
     const KEEP_REFFERER_ORIGINS_LIST = ['https://www.pixiv.net', 'https://hitomi.la'];
@@ -218,8 +220,7 @@ shift + RMB: Close the tab.
     }
 
     function getNameAndExtensionFromUrl(url) {
-        const urlSplit = url.split('/');
-        let fileName = urlSplit[urlSplit.length - 1]; // last path part is probably the file name
+        let fileName = url.split('/').at(-1); // last path part is probably the file name
         fileName = fileName.split('?')[0]; // drop query params if present
         fileName = decodeURI(fileName); // handle encoded url
 
@@ -235,8 +236,70 @@ shift + RMB: Close the tab.
         }
 
         // tw*tter
-        if (!ext && url.includes('twimg.com')){
-            ext = url.split('format=').at(-1).split('&')[0];
+        if (!ext && url.includes('twimg.com')) {
+            ext = url.match(/format=(\w+)/)?.[1];
+        }
+
+        if (url.includes('kemono.cr/data') && url.includes('?f=')) {
+            let [, originalName] = url.split('?f=');
+            originalName = originalName.replaceAll('+', ' ');
+
+            const splitName = originalName.split('.');
+            const originalExt = splitName.pop();
+            name = splitName.join('.');
+
+            if (ext !== originalExt) {
+                console.log('Extension mismatch');
+                ext = originalExt;
+            }
+        }
+
+        const host = window.location.host;
+        switch (true) {
+            case /e(?:-|x)h(?:e)nt.i\.org/.test(host): {
+                try {
+                    const galleryTitle = document.querySelector('h1').innerText.slice(0, GALLERY_NAME_LIMIT);
+                    let [current, last] = [...document.querySelectorAll('#i2 span')].map((e) => e.innerText);
+                    current = current.padStart(last.length, '0');
+                    name = `${galleryTitle} (${current} of ${last}) ` + name;
+                } catch (error) {
+                    console.error(error);
+                }
+
+                break;
+            }
+
+            case /(?:x|twitter)\.com/.test(host): {
+                try {
+                    const [, userTag, postId] = window.location.href.match(/[twitter|x]\.com\/(.+)\/status\/(\d+)\//);
+                    if (userTag && postId) {
+                        name = `twitter_${userTag}_${postId}_` + name;
+                    }
+                } catch (error) {
+                    console.error(error);
+                }
+
+                break;
+            }
+
+            case /kem(?:o)no\.cr/.test(host): {
+                try {
+                    const usernameElement = document.querySelector('.post__user-name');
+                    const username = usernameElement.innerText;
+
+                    const [, host, userId, postId] = window.location.href.match(
+                        /kemono\.cr\/(\w+)\/user\/(\d+)\/post\/(\d+)/
+                    );
+
+                    const prefix = `kmn-${host} [${username}][${userId}-${postId}] `;
+                    name = prefix + name;
+                } catch {}
+
+                break;
+            }
+
+            default:
+                break;
         }
 
         // check if extension is correct and not just a part of file name, like in 'file.name'
