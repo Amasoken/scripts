@@ -91,6 +91,11 @@ shift + RMB: Close the tab.
         next: null,
     };
 
+    const resetClicks = () => {
+        clicks.prev = null;
+        clicks.next = null;
+    };
+
     function oneHandClick(e) {
         clicks.prev = clicks.next;
         clicks.next = e;
@@ -105,9 +110,13 @@ shift + RMB: Close the tab.
 
                 if (diff < DBLCLK_SAVE_WHEN_LOWER_THEN) {
                     tryImgEvent(e, { altKey: true });
+                    resetClicks();
+
                     return true;
                 } else if (diff < DBLCLK_IGNORE_WHEN_HIGHER_THAN) {
                     tryImgEvent(e, { ctrlKey: true });
+                    resetClicks();
+
                     return true;
                 }
             }
