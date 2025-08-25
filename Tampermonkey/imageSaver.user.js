@@ -55,8 +55,14 @@ shift + RMB: Close the tab.
     // when site stores images on a different domain, CORS might prevent fetch from downloading the image
     // add a query string param, open in the new tab, then try to download:
     const CORS_HACK_PARAM = 'abcdef'; // query param to check for.
+    const CLOSE_IFRAME_MESSAGE = 'userscript_close_image_dl_frame';
+    const IFRAME_CLASSNAME = 'iframe-image-dl-hack';
 
-    if (window.location.search.includes(CORS_HACK_PARAM + '=')) {
+    const isCORSHackUsed = window.location.search.includes(CORS_HACK_PARAM + '=');
+    const originList = [];
+    let isUsingIFrames = false;
+
+    if (isCORSHackUsed) {
         if (document.querySelector('body img')?.src === window.location.href) {
             console.log('CORS hack query param detected, trying to download...');
             const shouldCloseTab = true;
@@ -64,6 +70,20 @@ shift + RMB: Close the tab.
         }
     }
 
+    function handleIFrameMessage(event) {
+        if (originList.includes(event.origin)) {
+            if (event.data.startsWith(CLOSE_IFRAME_MESSAGE)) {
+                const frameUrl = event.data.split(CLOSE_IFRAME_MESSAGE + '::').at(-1);
+
+                const iframes = [...document.getElementsByClassName(IFRAME_CLASSNAME)];
+                const iframe = iframes.filter((el) => el.src === frameUrl)[0];
+
+                if (iframe) {
+                    iframe.parentNode?.removeChild(iframe);
+                }
+            }
+        }
+    }
     // === end of hack check ===
 
     const clicks = {
@@ -166,11 +186,22 @@ shift + RMB: Close the tab.
         a.click();
     }
 
+    function openInIFrame(imageUrl) {
+        const iframe = document.createElement('iframe');
+        iframe.className = IFRAME_CLASSNAME;
+        iframe.src = imageUrl;
+        iframe.style.display = 'none';
+
+        document.body.appendChild(iframe);
+    }
+
     function openInNewWindow(imageUrl) {
         window.open(imageUrl, '_blank');
     }
 
     function closeWindow() {
+        if (isCORSHackUsed) window.parent.postMessage(CLOSE_IFRAME_MESSAGE + '::' + window.location.href, '*');
+
         const closeButton = document.createElement('button');
         closeButton.onclick = () => window.close();
 
@@ -253,7 +284,10 @@ shift + RMB: Close the tab.
         const imageUrl = new URL(url);
         imageUrl.searchParams.append(CORS_HACK_PARAM, '');
 
-        openInNewTab(imageUrl, true);
+        if (!originList.includes(imageUrl.origin)) originList.push(imageUrl.origin);
+
+        // openInNewTab(imageUrl, true);
+        openInIFrame(imageUrl);
     }
 
     function isSameOrigin(link1, link2) {
@@ -299,6 +333,12 @@ shift + RMB: Close the tab.
                             if (shouldCloseTab) closeWindow();
                         } else {
                             console.log('As a last resort, trying to download image in a new tab to avoid CORS');
+                            if (!isUsingIFrames) {
+                                isUsingIFrames = true;
+
+                                window.addEventListener('message', handleIFrameMessage);
+                            }
+
                             saveImageWithACrossOriginHack(url);
                         }
                     },
