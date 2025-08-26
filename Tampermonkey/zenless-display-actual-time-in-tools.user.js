@@ -1,13 +1,13 @@
 // ==UserScript==
 // @name         Display time properly in battle records
-// @namespace    http://tampermonkey.net/
+// @namespace    https://github.com/Amasoken/scripts
 // @version      2025-08-25
 // @description  try to take over the world!
 // @author       Amasoken
 // @match        https://act.hoyolab.com/app/zzz-game-record/index.html
 // @icon         https://www.google.com/s2/favicons?sz=64&domain=hoyolab.com
 // @grant        none
-// @downloadURL   https://github.com/Amasoken/scripts/raw/master/Tampermonkey/zenless-display-actual-time-in-tools.user.js
+// @downloadURL  https://github.com/Amasoken/scripts/raw/master/Tampermonkey/zenless-display-actual-time-in-tools.user.js
 // @updateURL    https://github.com/Amasoken/scripts/raw/master/Tampermonkey/zenless-display-actual-time-in-tools.user.js
 // ==/UserScript==
 

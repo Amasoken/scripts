@@ -1,6 +1,6 @@
 // ==UserScript==
 // @name         Control reddit carousel with arrows
-// @namespace    http://tampermonkey.net/
+// @namespace    https://github.com/Amasoken/scripts
 // @version      2025-08-25
 // @description  Redirect Reddit to the old-new design
 // @author       Amasoken
