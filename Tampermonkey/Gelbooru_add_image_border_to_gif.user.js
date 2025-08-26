@@ -54,7 +54,7 @@ a:has(>img:is([title*="animated"],[title*="video"]))::before {
 }`,
         // "video" override, webm/mp4/etc.
         `a:has(>img[title*="video"])::before {
-    content: "";
+    content: "vid";
     background: #0000ff;
 }`,
         // "animated" but with no indication of "video" or "animated_gif". either new or mistagged
@@ -63,12 +63,12 @@ a:has(>img:is([title*="animated"],[title*="video"]))::before {
     background: #ab00ff;
 }`,
         // border for gifs that are resized, to avoid mixing them up with still images
-        `div:has(#resize-link:not([style*="display: none"])) #image,
-div:has(#resized_notice:not([style*="display: none"])) #image {
+        `div:has(#resize-link:not([style*="display: none"])) section[data-tags*="animated"] #image,
+div:has(#resized_notice:not([style*="display: none"])):has(#image[alt*="animated"]) #image {
     border: 3px solid #02cae7;
 }
-div:has(#resize-link:not([style*="display: none"])) picture::before,
-div:has(#resized_notice:not([style*="display: none"])) #note-container::before {
+div:has(#resize-link:not([style*="display: none"])) section[data-tags*="animated"] picture::before,
+div:has(#resized_notice:not([style*="display: none"])):has(#image[alt*="animated"]) #note-container::before {
     content: "RESIZED GIF";
     background: #02cae7;
     color: #ffffff;

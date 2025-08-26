@@ -1,6 +1,6 @@
 // ==UserScript==
 // @name         Zoom for images
-// @namespace    http://tampermonkey.net/
+// @namespace    https://github.com/Amasoken/scripts
 // @version      0.0.4
 // @description  Zoom images on Gelbooru
 // @author       Amasoken
