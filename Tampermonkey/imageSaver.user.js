@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         Open/save images with RMB without prompt on Gelbooru/Danbooru/etc
 // @namespace    https://github.com/Amasoken/scripts
-// @version      0.29
+// @version      0.33
 // @description  interact with images using RMB and modifier keys
 // @author       Amasoken
 // @match        http*://*/*
@@ -43,9 +43,12 @@ shift + RMB: Close the tab.
     const ENABLE_RMB_SHORTCUTS = true;
     const DBLCLK_SAVE_WHEN_LOWER_THEN = 300;
     const DBLCLK_IGNORE_WHEN_HIGHER_THAN = 800;
+    const DBLCLK_MARGIN = 10;
+
+    const GALLERY_NAME_LIMIT = 110;
 
     // sites as pixiv will block requests with no refferer with 403 error, so keep the refferer for these
-    const KEEP_REFFERER_ORIGINS_LIST = ['https://www.pixiv.net'];
+    const KEEP_REFFERER_ORIGINS_LIST = ['https://www.pixiv.net', 'https://hitomi.la'];
 
     const isTargetImage = (e) => e.target.tagName === 'IMG' && e.target.src;
     const isImageOnlyPage = Boolean(document.body) && document.querySelector('body img') === document.body.lastChild;
@@ -54,8 +57,14 @@ shift + RMB: Close the tab.
     // when site stores images on a different domain, CORS might prevent fetch from downloading the image
     // add a query string param, open in the new tab, then try to download:
     const CORS_HACK_PARAM = 'abcdef'; // query param to check for.
+    const CLOSE_IFRAME_MESSAGE = 'userscript_close_image_dl_frame';
+    const IFRAME_CLASSNAME = 'iframe-image-dl-hack';
 
-    if (window.location.search.includes(CORS_HACK_PARAM + '=')) {
+    const isCORSHackUsed = window.location.search.includes(CORS_HACK_PARAM + '=');
+    const originList = [];
+    let isUsingIFrames = false;
+
+    if (isCORSHackUsed) {
         if (document.querySelector('body img')?.src === window.location.href) {
             console.log('CORS hack query param detected, trying to download...');
             const shouldCloseTab = true;
@@ -63,6 +72,20 @@ shift + RMB: Close the tab.
         }
     }
 
+    function handleIFrameMessage(event) {
+        if (originList.includes(event.origin)) {
+            if (event.data.startsWith(CLOSE_IFRAME_MESSAGE)) {
+                const frameUrl = event.data.split(CLOSE_IFRAME_MESSAGE + '::').at(-1);
+
+                const iframes = [...document.getElementsByClassName(IFRAME_CLASSNAME)];
+                const iframe = iframes.filter((el) => el.src === frameUrl)[0];
+
+                if (iframe) {
+                    iframe.parentNode?.removeChild(iframe);
+                }
+            }
+        }
+    }
     // === end of hack check ===
 
     const clicks = {
@@ -70,21 +93,32 @@ shift + RMB: Close the tab.
         next: null,
     };
 
+    const resetClicks = () => {
+        clicks.prev = null;
+        clicks.next = null;
+    };
+
     function oneHandClick(e) {
         clicks.prev = clicks.next;
         clicks.next = e;
         const { prev, next } = clicks;
-        const clickMargin = 5;
 
         if (prev && next) {
-            if (prev.screenX - next.screenX <= clickMargin && prev.screenY - next.screenY <= clickMargin) {
+            const diffX = Math.abs(prev.pageX - next.pageX);
+            const diffY = Math.abs(prev.pageY - next.pageY);
+
+            if (diffX <= DBLCLK_MARGIN && diffY <= DBLCLK_MARGIN) {
                 const diff = next.timeStamp - prev.timeStamp;
 
                 if (diff < DBLCLK_SAVE_WHEN_LOWER_THEN) {
                     tryImgEvent(e, { altKey: true });
+                    resetClicks();
+
                     return true;
                 } else if (diff < DBLCLK_IGNORE_WHEN_HIGHER_THAN) {
                     tryImgEvent(e, { ctrlKey: true });
+                    resetClicks();
+
                     return true;
                 }
             }
@@ -126,6 +160,7 @@ shift + RMB: Close the tab.
         // ctrl + RMB click
         if (ctrlKey) {
             e.stopPropagation();
+            e.preventDefault();
             if (isImageOnlyPage) {
                 closeWindow();
             } else {
@@ -137,12 +172,14 @@ shift + RMB: Close the tab.
         if (altKey) {
             const shouldCloseTab = isImageOnlyPage;
             e.stopPropagation();
+            e.preventDefault();
             saveImage(imageElement.src, shouldCloseTab);
         }
 
         // shift + RMB click
-        if (isSingleKeyPressed && shiftKey) {
+        if (shiftKey) {
             e.stopPropagation();
+            e.preventDefault();
             !isImageOnlyPage && openInNewWindow(imageElement.src);
             isImageOnlyPage && closeWindow();
         }
@@ -153,11 +190,20 @@ shift + RMB: Close the tab.
         a.href = imageUrl;
         a.target = '_blank';
 
-        if (!keepRef || !KEEP_REFFERER_ORIGINS_LIST.includes(window.location.origin)) {
+        if (!keepRef && !KEEP_REFFERER_ORIGINS_LIST.includes(window.location.origin)) {
             a.rel = 'noreferrer noopener';
         }
 
         a.click();
+    }
+
+    function openInIFrame(imageUrl) {
+        const iframe = document.createElement('iframe');
+        iframe.className = IFRAME_CLASSNAME;
+        iframe.src = imageUrl;
+        iframe.style.display = 'none';
+
+        document.body.appendChild(iframe);
     }
 
     function openInNewWindow(imageUrl) {
@@ -165,6 +211,8 @@ shift + RMB: Close the tab.
     }
 
     function closeWindow() {
+        if (isCORSHackUsed) window.parent.postMessage(CLOSE_IFRAME_MESSAGE + '::' + window.location.href, '*');
+
         const closeButton = document.createElement('button');
         closeButton.onclick = () => window.close();
 
@@ -172,8 +220,7 @@ shift + RMB: Close the tab.
     }
 
     function getNameAndExtensionFromUrl(url) {
-        const urlSplit = url.split('/');
-        let fileName = urlSplit[urlSplit.length - 1]; // last path part is probably the file name
+        let fileName = url.split('/').at(-1); // last path part is probably the file name
         fileName = fileName.split('?')[0]; // drop query params if present
         fileName = decodeURI(fileName); // handle encoded url
 
@@ -189,8 +236,70 @@ shift + RMB: Close the tab.
         }
 
         // tw*tter
-        if (!ext && url.includes('twimg.com')){
-            ext = url.split('format=').at(-1).split('&')[0];
+        if (!ext && url.includes('twimg.com')) {
+            ext = url.match(/format=(\w+)/)?.[1];
+        }
+
+        if (url.includes('kemono.cr/data') && url.includes('?f=')) {
+            let [, originalName] = url.split('?f=');
+            originalName = originalName.replaceAll('+', ' ');
+
+            const splitName = originalName.split('.');
+            const originalExt = splitName.pop();
+            name = splitName.join('.');
+
+            if (ext !== originalExt) {
+                console.log('Extension mismatch');
+                ext = originalExt;
+            }
+        }
+
+        const host = window.location.host;
+        switch (true) {
+            case /e(?:-|x)h(?:e)nt.i\.org/.test(host): {
+                try {
+                    const galleryTitle = document.querySelector('h1').innerText.slice(0, GALLERY_NAME_LIMIT);
+                    let [current, last] = [...document.querySelectorAll('#i2 span')].map((e) => e.innerText);
+                    current = current.padStart(last.length, '0');
+                    name = `${galleryTitle} (${current} of ${last}) ` + name;
+                } catch (error) {
+                    console.error(error);
+                }
+
+                break;
+            }
+
+            case /(?:x|twitter)\.com/.test(host): {
+                try {
+                    const [, userTag, postId] = window.location.href.match(/[twitter|x]\.com\/(.+)\/status\/(\d+)\//);
+                    if (userTag && postId) {
+                        name = `twitter_${userTag}_${postId}_` + name;
+                    }
+                } catch (error) {
+                    console.error(error);
+                }
+
+                break;
+            }
+
+            case /kem(?:o)no\.cr/.test(host): {
+                try {
+                    const usernameElement = document.querySelector('.post__user-name');
+                    const username = usernameElement.innerText;
+
+                    const [, host, userId, postId] = window.location.href.match(
+                        /kemono\.cr\/(\w+)\/user\/(\d+)\/post\/(\d+)/
+                    );
+
+                    const prefix = `kmn-${host} [${username}][${userId}-${postId}] `;
+                    name = prefix + name;
+                } catch {}
+
+                break;
+            }
+
+            default:
+                break;
         }
 
         // check if extension is correct and not just a part of file name, like in 'file.name'
@@ -221,11 +330,36 @@ shift + RMB: Close the tab.
         a.remove();
     }
 
+    function downloadImageWithFetch(url, name) {
+        return fetch(url)
+            .then((res) => res.blob())
+            .then((blob) => {
+                const urlObject = URL.createObjectURL(blob);
+                const a = document.createElement('a');
+                a.href = urlObject;
+                a.download = name;
+                document.body.appendChild(a);
+
+                a.click();
+                a.remove();
+                URL.revokeObjectURL(urlObject);
+
+                return true;
+            })
+            .catch((error) => {
+                console.error('Error downloading the file with fetch:', error);
+                return false;
+            });
+    }
+
     function saveImageWithACrossOriginHack(url) {
         const imageUrl = new URL(url);
         imageUrl.searchParams.append(CORS_HACK_PARAM, '');
 
-        openInNewTab(imageUrl, true);
+        if (!originList.includes(imageUrl.origin)) originList.push(imageUrl.origin);
+
+        // openInNewTab(imageUrl, true);
+        openInIFrame(imageUrl);
     }
 
     function isSameOrigin(link1, link2) {
@@ -245,27 +379,42 @@ shift + RMB: Close the tab.
             saveImageWithA(url, fileName);
             if (shouldCloseTab) closeWindow();
         } else {
-            console.log('Cross origin, using GM_download');
-            GM_download({
-                url,
-                name: fileName,
-                onload: () => {
-                    console.log('Success');
-                    shouldCloseTab && closeWindow();
-                },
-                onerror: (error) => {
-                    console.log('GM_download error: ', error);
+            // try fetch first, chances are it works fine without CORS
+            console.log('Cross origin. Trying to use fetch...');
+            downloadImageWithFetch(url, fileName).then((success) => {
+                if (success) {
+                    console.log('Done.');
+                    return;
+                }
 
-                    if (error.error === 'not_whitelisted') {
-                        // possibly webp
-                        console.log('Image is possibly webp, trying download with <a> element');
-                        saveImageWithA(url, fileName);
-                        if (shouldCloseTab) closeWindow();
-                    } else {
-                        console.log('As a last resort, trying to download image in a new tab to avoid CORS');
-                        saveImageWithACrossOriginHack(url);
-                    }
-                },
+                console.log('Cross origin, using GM_download');
+                GM_download({
+                    url,
+                    name: fileName,
+                    onload: () => {
+                        console.log('Success');
+                        shouldCloseTab && closeWindow();
+                    },
+                    onerror: (error) => {
+                        console.log('GM_download error: ', error);
+
+                        if (error.error === 'not_whitelisted') {
+                            // possibly webp
+                            console.log('Image is possibly webp, trying download with <a> element');
+                            saveImageWithA(url, fileName);
+                            if (shouldCloseTab) closeWindow();
+                        } else {
+                            console.log('As a last resort, trying to download image in a new tab to avoid CORS');
+                            if (!isUsingIFrames) {
+                                isUsingIFrames = true;
+
+                                window.addEventListener('message', handleIFrameMessage);
+                            }
+
+                            saveImageWithACrossOriginHack(url);
+                        }
+                    },
+                });
             });
         }
     }
