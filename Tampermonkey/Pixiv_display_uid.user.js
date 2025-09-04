@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         Display UID on Pixiv, Fanbox, Patreon
 // @namespace    https://github.com/Amasoken/scripts
-// @version      2025-08-26
+// @version      2025-09-05
 // @description  Display UID on Pixiv, Fanbox, Patreon
 // @author       Amasoken
 // @match        https://www.patreon.com/*
@@ -20,6 +20,8 @@
     const KMN_BASE_URL = 'https://kemono.cr';
 
     const sleep = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
+
+    const selectAll = (selector, node = document) => [...node.querySelectorAll(selector)];
 
     function findObjectField(obj, fieldName) {
         for (const [name, value] of Object.entries(obj)) {
@@ -45,7 +47,7 @@
     function getFanboxIds() {
         const regexp = /pixiv\.net\/(?:\w+\/)?(?:users\/|member\.php\?id=)(\d+)\/?$/;
 
-        const foundPixivLinks = [...document.querySelectorAll('a')].filter((a) => regexp.test(a.href));
+        const foundPixivLinks = selectAll('a').filter((a) => regexp.test(a.href));
         const userIds = foundPixivLinks.map((a) => a.href.match(regexp)?.[1]);
 
         const bgImageId = document
@@ -60,7 +62,7 @@
         const selfAddress = window.location.host + '/'; // "username.fanbox.cc/"
 
         // find avatars/backgrounds that might have id in the url
-        const foundSelfLinks = [...document.querySelectorAll('a')].filter((a) => a.href.endsWith(selfAddress));
+        const foundSelfLinks = selectAll('a').filter((a) => a.href.endsWith(selfAddress));
 
         for (const el of foundSelfLinks) {
             const bgElement = el.querySelector('div[style]');
@@ -76,11 +78,18 @@
     }
 
     function getPixivId(button) {
-        const userId = button.getAttribute('data-gtm-user-id');
+        let userId = button.getAttribute('data-gtm-user-id');
         if (userId) return userId;
 
         // mobile
-        return button?.parentNode?.parentNode?.querySelector('a')?.href?.split(/\//g)?.at(-1);
+        userId = button?.parentNode?.parentNode?.querySelector('a')?.href?.split(/\//g)?.at(-1);
+        if (userId) return userId;
+
+        // mobile but btn with no id
+        // try to get from the url
+        if (window.location.href.includes('/users/')) return window.location.href.split('/users/').at(-1);
+
+        return;
     }
 
     let host;
@@ -100,6 +109,7 @@
             button.setAttribute(attr, attributes[attr]);
         }
 
+        button.setAttribute('data-uid-checked', '');
         button.innerText = ' uid: ' + id;
         button.style.backgroundColor = '#a3294a';
         button.style.color = '#fff';
@@ -143,24 +153,33 @@
     const observers = {
         pixiv: (node) => {
             if (!node?.querySelector) return;
-            if (node.querySelector('button[data-gtm-user-id], .user-details-follow')) {
+
+            const btnSelectors = 'button[data-gtm-user-id], .user-details-follow, .ui-button:not([data-uid-checked])';
+            if (node.querySelector(btnSelectors)) {
+                const followSelector =
+                    'button[data-gtm-user-id]:not([data-uid-checked]), .user-details-follow>button:not([data-uid-checked])';
+                const followSelectorM = '.ui-button:not([data-uid-checked])';
+
                 const followButtons = [
-                    ...node.querySelectorAll('button[data-gtm-user-id], .user-details-follow>button'),
+                    ...selectAll(followSelector, node),
+                    ...selectAll(followSelectorM, node).filter((b) => b.innerText?.toLowerCase().includes('follow')),
                 ];
 
-                for (const button of followButtons) {
+                for (const button of Array.from(new Set(followButtons))) {
                     const id = getPixivId(button);
+                    if (!id) continue;
 
                     const attr = getElementAttributes(['class', 'data-variant', 'data-full-width', /data-v-/], button);
                     const btn = createButton(id, attr);
                     button.parentNode.appendChild(btn);
+                    button.setAttribute('data-uid-checked', '');
                 }
             }
         },
         fanbox: async (node) => {
             if (!node?.querySelector) return;
             if (node.querySelector('img[class^="FollowButton"]')) {
-                const followButtons = [...node.querySelectorAll('button:has(img[class^="FollowButton"])')];
+                const followButtons = selectAll('button:has(img[class^="FollowButton"])', node);
 
                 let ids = [];
                 for (let i = 0; i < 5; i++) {
@@ -181,11 +200,10 @@
         patreon: (node) => {
             if (!node?.querySelector) return;
 
-            const followButtons = [
-                ...document.querySelectorAll(
-                    ':is(a[data-tag*="upgrade"], button[data-tag*="patron"], button[data-tag*="membership"]):not([data-page-uid])'
-                ),
-            ];
+            const selector =
+                ':is(a[data-tag*="upgrade"], button[data-tag*="patron"], button[data-tag*="membership"]):not([data-page-uid])';
+            const followButtons = selectAll(selector);
+
             if (!followButtons.length) return;
 
             let id = getPId();
