@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         Add border to gif on Gelbooru
 // @namespace    https://github.com/Amasoken/scripts
-// @version      2025-08-26
+// @version      2025-09-10
 // @description  Add border indicator to gif images, similar how it's done with video
 // @author       Amasoken
 // @match        https://exhentai.org/*
@@ -28,7 +28,7 @@
     const baseBorderStyle = [
         // border for anything 'animated', excluding 'video'
         `#gdt a>div[title$=".gif"],
-a>img[title*="animated"]:not([title*="video"]) {
+a>img[title*="animated"]:not([title*=" video "]) {
     border: 3px solid #02cae7;
 }`,
         // position for preview containers
