@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         Display UID on Pixiv, Fanbox, Patreon
 // @namespace    https://github.com/Amasoken/scripts
-// @version      2025-09-05
+// @version      2025-09-10
 // @description  Display UID on Pixiv, Fanbox, Patreon
 // @author       Amasoken
 // @match        https://www.patreon.com/*
@@ -18,12 +18,15 @@
     'use strict';
 
     const KMN_BASE_URL = 'https://kemono.cr';
+    const UID_ATTR = 'data-uid-checked';
 
     const sleep = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
 
     const selectAll = (selector, node = document) => [...node.querySelectorAll(selector)];
 
     function findObjectField(obj, fieldName) {
+        if (!obj) return { found: false, value: null };
+
         for (const [name, value] of Object.entries(obj)) {
             if (name === fieldName) return { found: true, value };
 
@@ -36,12 +39,32 @@
         return { found: false, value: null };
     }
 
+    function getIdFromScripts() {
+        const scripts = selectAll('script');
+
+        const search = `\\"creator\\":`;
+        const ids = scripts
+            .filter((s) => s.innerText?.includes(search))
+            .map((e) => {
+                const index = e.innerText.indexOf(search);
+                const searchStr = e.innerText.substring(index, index + 200);
+                const [, maybeId] = searchStr.match(/\\"creator\\":\{.*?data.*?\\"id\\":\\"(\d+)\\"/) ?? [];
+                return maybeId;
+            });
+
+        return ids.filter((id) => id)[0];
+    }
+
     function getPId() {
         const { found, value } = findObjectField(window.__NEXT_DATA__, 'creator');
-        if (!found) return [];
+        if (found) return value.data.id;
 
-        const userId = value.data.id;
-        return userId;
+        console.log('No __NEXT_DATA__ object found, looking in scripts');
+        const id = getIdFromScripts();
+        if (id) return id;
+
+        console.log('No id found');
+        return null;
     }
 
     function getFanboxIds() {
@@ -109,7 +132,7 @@
             button.setAttribute(attr, attributes[attr]);
         }
 
-        button.setAttribute('data-uid-checked', '');
+        button.setAttribute(UID_ATTR, id);
         button.innerText = ' uid: ' + id;
         button.style.backgroundColor = '#a3294a';
         button.style.color = '#fff';
@@ -154,11 +177,10 @@
         pixiv: (node) => {
             if (!node?.querySelector) return;
 
-            const btnSelectors = 'button[data-gtm-user-id], .user-details-follow, .ui-button:not([data-uid-checked])';
+            const btnSelectors = `button[data-gtm-user-id], .user-details-follow, .ui-button:not([${UID_ATTR}])`;
             if (node.querySelector(btnSelectors)) {
-                const followSelector =
-                    'button[data-gtm-user-id]:not([data-uid-checked]), .user-details-follow>button:not([data-uid-checked])';
-                const followSelectorM = '.ui-button:not([data-uid-checked])';
+                const followSelector = `button[data-gtm-user-id]:not([${UID_ATTR}]), .user-details-follow>button:not([${UID_ATTR}])`;
+                const followSelectorM = `.ui-button:not([${UID_ATTR}])`;
 
                 const followButtons = [
                     ...selectAll(followSelector, node),
@@ -172,14 +194,14 @@
                     const attr = getElementAttributes(['class', 'data-variant', 'data-full-width', /data-v-/], button);
                     const btn = createButton(id, attr);
                     button.parentNode.appendChild(btn);
-                    button.setAttribute('data-uid-checked', '');
+                    button.setAttribute(UID_ATTR, id);
                 }
             }
         },
         fanbox: async (node) => {
             if (!node?.querySelector) return;
             if (node.querySelector('img[class^="FollowButton"]')) {
-                const followButtons = selectAll('button:has(img[class^="FollowButton"])', node);
+                const followButtons = selectAll(`button:has(img[class^="FollowButton"]):not([${UID_ATTR}])`, node);
 
                 let ids = [];
                 for (let i = 0; i < 5; i++) {
@@ -193,6 +215,7 @@
                     for (const id of ids) {
                         const btn = createButton(id, attr);
                         button.parentNode.appendChild(btn);
+                        button.setAttribute(UID_ATTR, id);
                     }
                 }
             }
@@ -200,16 +223,16 @@
         patreon: (node) => {
             if (!node?.querySelector) return;
 
-            const selector =
-                ':is(a[data-tag*="upgrade"], button[data-tag*="patron"], button[data-tag*="membership"]):not([data-page-uid])';
+            const selector = `:is(a[data-tag*="upgrade"], button[data-tag*="patron"], button[data-tag*="membership"]):not([${UID_ATTR}])`;
             const followButtons = selectAll(selector);
 
             if (!followButtons.length) return;
 
             let id = getPId();
+            if (!id) return;
 
             for (const button of followButtons) {
-                button.setAttribute('data-page-uid', id);
+                button.setAttribute(UID_ATTR, id);
                 const attr = getElementAttributes(['class'], button);
 
                 const btn = createButton(id, attr);
