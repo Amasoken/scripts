@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         Open/save images with RMB without prompt on Gelbooru/Danbooru/etc
 // @namespace    https://github.com/Amasoken/scripts
-// @version      0.33
+// @version      0.34
 // @description  interact with images using RMB and modifier keys
 // @author       Amasoken
 // @match        http*://*/*
@@ -369,7 +369,24 @@ shift + RMB: Close the tab.
         return URL1.origin === URL2.origin;
     }
 
+    // force r*ddit to use image url instead of preview url
+    function adjustUrlIfNeeded(rawUrl) {
+        const url = new URL(rawUrl);
+
+        const host = url.host;
+        switch (true) {
+            case /preview\.redd\.it/.test(host): {
+                return url.href.replace('preview.redd.it', 'i.redd.it');
+            }
+
+            default:
+                return url.href;
+        }
+    }
+
     function saveImage(url, shouldCloseTab) {
+        url = adjustUrlIfNeeded(url);
+
         const fileName = getFileName(url);
         console.log('Trying to save image', { fileName, url });
 
