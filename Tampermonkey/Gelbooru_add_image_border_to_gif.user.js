@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         Add border to gif on Gelbooru
 // @namespace    https://github.com/Amasoken/scripts
-// @version      2025-09-10
+// @version      2025-10-09
 // @description  Add border indicator to gif images, similar how it's done with video
 // @author       Amasoken
 // @match        https://exhentai.org/*
@@ -20,10 +20,14 @@
     const STORAGE_KEYS = {
         displayNames: 'userscript_display_img_title',
         collapseGallery: 'userscript_collapse_gallery_info',
+        displayNav: 'userscript_display_navigation_buttons',
     };
 
-    let displayNames = JSON.parse(localStorage.getItem(STORAGE_KEYS.displayNames) ?? 'false');
-    let collapseGallery = JSON.parse(localStorage.getItem(STORAGE_KEYS.collapseGallery) ?? 'false');
+    const controls = {
+        displayNames: JSON.parse(localStorage.getItem(STORAGE_KEYS.displayNames) ?? 'false'),
+        collapseGallery: JSON.parse(localStorage.getItem(STORAGE_KEYS.collapseGallery) ?? 'false'),
+        displayNav: JSON.parse(localStorage.getItem(STORAGE_KEYS.displayNav) ?? 'false'),
+    };
 
     const baseBorderStyle = [
         // border for anything 'animated', excluding 'video'
@@ -105,7 +109,7 @@ div:has(#resized_notice:not([style*="display: none"])):has(#image[alt*="animated
     document.head.appendChild(style);
 
     function updateStyle() {
-        style.textContent = baseBorderStyle + (displayNames ? displayNameStyle : '');
+        style.textContent = baseBorderStyle + (controls.displayNames ? displayNameStyle : '');
     }
 
     function expand(event, element) {
@@ -129,10 +133,10 @@ div:has(#resized_notice:not([style*="display: none"])):has(#image[alt*="animated
     function collapseGalleryIfNeeded() {
         if (window.location.href.includes('.org/g/')) {
             const commentSection = document.querySelector('#cdiv');
-            if (commentSection) collapse(commentSection, collapseGallery);
+            if (commentSection) collapse(commentSection, controls.collapseGallery);
 
             const galleryInfo = document.querySelector('div.gm:has(#gmid)');
-            if (galleryInfo) collapse(galleryInfo, collapseGallery);
+            if (galleryInfo) collapse(galleryInfo, controls.collapseGallery);
         }
     }
 
@@ -145,29 +149,80 @@ border: none; padding: 6px 12px; cursor: pointer; margin-left: 20px;`;
         return button;
     };
 
+    const setNavigationButtons = () => {
+        let div = document.querySelector('.nav-controls');
+
+        if (!div) {
+            div = document.createElement('div');
+            document.body.appendChild(div);
+            div.className = 'nav-controls';
+
+            [
+                ['<', () => document.querySelector(`#uprev, td:has(+.ptds)>a, #prev`)?.click()],
+                ['>', () => document.querySelector(`#unext, .ptds+td>a, #next`)?.click()],
+            ].forEach(([text, cb]) => {
+                const btn = document.createElement('button');
+                btn.innerText = text;
+                btn.onclick = cb;
+                div.append(btn);
+            });
+
+            const style = document.createElement('style');
+            document.head.appendChild(style);
+            style.textContent = `
+.nav-controls button {
+    position: fixed;
+    top: 0;
+    height: 100%;
+    width: 179px;
+    z-index: 2;
+    color: #77787b;
+    border: none;
+    cursor: pointer;
+    font-size: xxx-large;
+    font-weight: bold;
+    opacity: 0.5;
+    width: calc((100% - 1280px) / 2);
+    background: #2b2b3b;
+}
+
+.nav-controls button:hover {
+    background: #2b2b3b;
+    color: white;
+}
+
+.nav-controls button:nth-of-type(1) {
+    left: 0;
+}
+.nav-controls button:nth-of-type(2) {
+    right: 0;
+}
+`;
+        }
+
+        div.style.display = controls.displayNav ? 'block' : 'none';
+    };
+
     const btnTitle = {
         true: ' [on]',
         false: ' [off]',
     };
     function addControls() {
-        const titleBtn = createButton('Toggle image titles' + btnTitle[displayNames]);
-        titleBtn.onclick = () => {
-            displayNames = !displayNames;
-            localStorage.setItem(STORAGE_KEYS.displayNames, `${displayNames}`);
-            updateStyle();
-            titleBtn.innerText = 'Toggle image titles' + btnTitle[displayNames];
+        const createAndAddButton = (title, controlName, cb) => {
+            const btn = createButton(title + btnTitle[controls[controlName]]);
+            btn.onclick = () => {
+                controls[controlName] = !controls[controlName];
+                localStorage.setItem(STORAGE_KEYS[controlName], `${controls[controlName]}`);
+                btn.innerText = title + btnTitle[controls[controlName]];
+                typeof cb === 'function' && cb();
+            };
+
+            document.body.appendChild(btn);
         };
 
-        const collapseGalleryBtn = createButton('Collapse gallery and comments' + btnTitle[collapseGallery]);
-        collapseGalleryBtn.onclick = () => {
-            collapseGallery = !collapseGallery;
-            localStorage.setItem(STORAGE_KEYS.collapseGallery, `${collapseGallery}`);
-            collapseGalleryIfNeeded();
-            collapseGalleryBtn.innerText = 'Collapse gallery and comments' + btnTitle[collapseGallery];
-        };
-
-        document.body.appendChild(titleBtn);
-        document.body.appendChild(collapseGalleryBtn);
+        createAndAddButton('Toggle image titles', 'displayNames', updateStyle);
+        createAndAddButton('Collapse gallery and comments', 'collapseGallery', collapseGalleryIfNeeded);
+        createAndAddButton('Display navigation', 'displayNav', setNavigationButtons);
     }
 
     updateStyle();
@@ -175,5 +230,6 @@ border: none; padding: 6px 12px; cursor: pointer; margin-left: 20px;`;
     if (/e(?:-|x)h(?:e)nt.i\.org/.test(window.location.host)) {
         addControls();
         collapseGalleryIfNeeded();
+        setNavigationButtons();
     }
 })();
