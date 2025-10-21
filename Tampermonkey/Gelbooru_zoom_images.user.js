@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         Zoom for images
 // @namespace    https://github.com/Amasoken/scripts
-// @version      0.0.4
+// @version      2025-10-21
 // @description  Zoom images on Gelbooru
 // @author       Amasoken
 // @match        https://kemono.cr/*
@@ -85,12 +85,6 @@ ${videoSelector} {
     font-weight: 700;
 }
 .indicator {${zoom === 100 && !fitScreen ? 'opacity: 40%;' : ''}}`;
-
-        // make pagination larger
-        style.textContent += `.ptt td, .ptb td {
-    zoom: 300%;
-    opacity: 0.4;
-}`;
     };
 
     let zoomLevel = parseInt(localStorage.getItem('zoom_level')) || 100;
@@ -114,6 +108,7 @@ ${videoSelector} {
     });
 
     div.onclick = (e) => {
+        e.preventDefault();
         e.stopPropagation();
 
         handleHotKey('/');
