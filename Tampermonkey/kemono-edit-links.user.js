@@ -168,17 +168,38 @@
         }
     }
 
-    window.navigation.addEventListener('navigate', async (event) => {
-        const url = event.destination.url;
+    async function handleUrlChange(url) {
         console.log('location changed!', url);
         if (url.startsWith('blob:')) {
             console.log('Ignoring blob url');
             return;
         }
 
-        await waitFor(() => window.location.href === event.destination.url, 10000);
-        await editLinks(event.destination.url);
-    });
+        await waitFor(() => window.location.href === url, 10000);
+        await editLinks();
+    }
+
+    try {
+        // chromium
+        window.navigation.addEventListener('navigate', (event) => handleUrlChange(event.destination.url));
+    } catch (error) {
+        if (!error.message.includes('window.navigation is undefined')) {
+            console.log('Error setting up navigation listener:', error);
+        }
+
+        // firefox, use patched state functions instead of window.navigation
+        ['pushState', 'replaceState'].forEach((fn) => {
+            const original = history[fn];
+            history[fn] = function (...args) {
+                const result = original.apply(this, args);
+                window.dispatchEvent(new Event('locationchange'));
+                return result;
+            };
+        });
+
+        window.addEventListener('popstate', () => window.dispatchEvent(new Event('locationchange')));
+        window.addEventListener('locationchange', () => handleUrlChange(location.href));
+    }
 
     await editLinks();
 
@@ -186,7 +207,7 @@
     const style = document.createElement('style');
     document.head.appendChild(style);
     style.textContent = `
-.fileThumb.image-link {
+figure:has(.fileThumb.image-link) {
     position: relative;
 }
 
