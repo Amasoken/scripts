@@ -4,9 +4,8 @@
 // @version      2025-10-21
 // @description  Kemono navigation hotkeys
 // @author       Amasoken
-// @match        https://kemono.su/*
 // @match        https://kemono.cr/*
-// @match        https://coomer.su/*
+// @match        https://coomer.st/*
 // @icon         https://www.google.com/s2/favicons?sz=64&domain=kemono.su
 // @grant        none
 // @downloadURL  https://github.com/Amasoken/scripts/raw/master/Tampermonkey/kemono-hotkeys.user.js
@@ -47,26 +46,26 @@
     const actions = {
         // Jump to the first image
         4: () => {
-            const images = getImages();
-            images[0]?.image?.scrollIntoView();
+            const imgs = getImages();
+            imgs[0]?.image?.scrollIntoView();
         },
         // Jump to the last image
         1: () => {
-            const images = getImages();
-            images.at(-1)?.image?.scrollIntoView();
+            const imgs = getImages();
+            imgs.at(-1)?.image?.scrollIntoView();
         },
         // Jump to the next image
         5: () => {
-            const images = getImages();
-            const index = images.findIndex((e) => e.rect.y > MIN_Y);
-            const img = images[index - 1] ?? images[index] ?? images.at(0);
+            const imgs = getImages();
+            const index = imgs.findIndex((e) => e.rect.y > MIN_Y);
+            const img = imgs[index - 1] ?? imgs[index] ?? imgs.at(0);
             img?.image?.scrollIntoView();
         },
         // Jump to the previous image
         2: () => {
-            const images = getImages();
-            const index = images.findIndex((e) => e.rect.y > MAX_Y);
-            const img = images[index] ?? images.at(-1);
+            const imgs = getImages();
+            const index = imgs.findIndex((e) => e.rect.y > MAX_Y);
+            const img = imgs[index] ?? imgs.at(-1);
             img?.image?.scrollIntoView();
         },
         // Favorite
@@ -77,12 +76,12 @@
         '.': () => {
             document.querySelector('button[class*="favoriteButton"]')?.click();
         },
-        // emulate alt+RMB, which is used for saving images in https://github.com/Amasoken/scripts/raw/master/Tampermonkey/imageSaver.user.js
+        // emulate alt+RMB, which is used for saving imgs in https://github.com/Amasoken/scripts/raw/master/Tampermonkey/imageSaver.user.js
         7: () => {
-            const images = getImages();
-            const index = images.findIndex((e) => e.rect.y > MAX_Y);
+            const imgs = getImages();
+            const index = imgs.findIndex((e) => e.rect.y > MAX_Y);
 
-            const img = images[index - 1] ?? images[index] ?? images.at(-1);
+            const img = imgs[index - 1] ?? imgs[index] ?? imgs.at(-1);
             simulateClick(img?.image, 'contextmenu', {
                 bubbles: true,
                 cancelable: true,
@@ -93,16 +92,16 @@
         },
         // Expand current image (clicks on preview)
         8: () => {
-            const images = getImages();
-            const index = images.findIndex((e) => e.rect.y > MAX_Y);
-            const img = images[index - 1] ?? images[index] ?? images.at(-1);
+            const imgs = getImages();
+            const index = imgs.findIndex((e) => e.rect.y > MAX_Y);
+            const img = imgs[index - 1] ?? imgs[index] ?? imgs.at(-1);
             img?.image?.click();
         },
-        // Expand all images in a post
+        // Expand all imgs in a post
         9: () => {
-            const images = getImages();
-            for (const image of images) {
-                image.image?.click();
+            const imgs = getImages();
+            for (const img of imgs) {
+                img.image?.click();
             }
         },
     };

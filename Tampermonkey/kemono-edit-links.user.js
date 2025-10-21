@@ -5,6 +5,7 @@
 // @description  Adjust download name for kemono files, hide dupe images
 // @author       Amasoken
 // @match        https://kemono.cr/*
+// @match        https://coomer.st/*
 // @icon         https://www.google.com/s2/favicons?sz=64&domain=kemono.cr
 // @grant        none
 // @downloadURL  https://github.com/Amasoken/scripts/raw/master/Tampermonkey/kemono-edit-links.user.js
@@ -168,9 +169,14 @@
     }
 
     window.navigation.addEventListener('navigate', async (event) => {
-        console.log('location changed!', event.destination.url);
-        await waitFor(() => window.location.href === event.destination.url, 10000);
+        const url = event.destination.url;
+        console.log('location changed!', url);
+        if (url.startsWith('blob:')) {
+            console.log('Ignoring blob url');
+            return;
+        }
 
+        await waitFor(() => window.location.href === event.destination.url, 10000);
         await editLinks(event.destination.url);
     });
 
