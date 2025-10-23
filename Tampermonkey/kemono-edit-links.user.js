@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         Kemono edit document and image dl links
 // @namespace    http://tampermonkey.net/
-// @version      2025-10-21
+// @version      2025-10-23
 // @description  Adjust download name for kemono files, hide dupe images
 // @author       Amasoken
 // @match        https://kemono.cr/*
@@ -56,11 +56,12 @@
         document.body.removeChild(link);
     }
 
-    function changeDownloadName(a, name, innerText) {
-        console.log('Change dl', { from: a.download, to: name });
-        a.href = a.href.split('?')[0] + '?f=' + encodeURIComponent(name);
-        if (innerText) a.innerText = 'dl: ' + name;
-        a.setAttribute('data-dl-name', name);
+    function changeDownloadName(el, name, innerText) {
+        // console.log('Change dl', { for: el, from: el.download || el?.src?.split('?f=').at(-1), to: name });
+        const attr = el?.href ? 'href' : 'src';
+        el[attr] = el[attr].split('?')[0] + '?f=' + encodeURIComponent(name);
+        if (innerText) el.innerText = 'dl: ' + name;
+        el.setAttribute('data-dl-name', name);
     }
 
     async function editLinks() {
@@ -70,18 +71,13 @@
             return;
         }
 
-        const hasTs = await waitFor(() => document.querySelector('.post__published .timestamp'), 10000, 50).catch(
-            (_) => false
+        const hasTs = await waitFor(() => document.querySelector('.post__published .timestamp'), 10000).catch(
+            () => false
         );
 
-        const hasLinks = await waitFor(
-            () =>
-                document.querySelector(
-                    '.post__attachment-link:not([data-dl-name]), .fileThumb.image-link:not([data-dl-name])'
-                ),
-            10000,
-            50
-        ).catch((_) => false);
+        const unhandledSelector = `.post__attachment-link:not([data-dl-name]), .fileThumb.image-link:not([data-dl-name])`;
+        const hasLinks = await waitFor(() => document.querySelector(unhandledSelector), 10000).catch((_) => false);
+        hasLinks && console.log('Adjust links for:', [...document.querySelectorAll(unhandledSelector)]);
 
         if (!hasTs || !hasLinks) {
             console.log('No timestamp or links found, aborting', { hasTs, hasLinks });
@@ -94,7 +90,6 @@
         }
 
         const timestamp = document.querySelector('.post__published .timestamp').innerText;
-
         const postTitle = document.querySelector('.post__title').innerText; // .replace(/ \(Patreon\)| \(Pixiv Fanbox\)/, '');
         const userName = document.querySelector('.post__user-name').innerText;
         const [, host, userId, postId] =
@@ -108,59 +103,54 @@
             postId,
         };
 
-        const links = [...document.querySelectorAll('.post__attachment-link')];
-
         // document links
-        for (const a of links) {
+        for (const a of [...document.querySelectorAll('.post__attachment-link')]) {
             const dlName = getDocumentDownloadName({ ...pageInfo, filename: a.download });
-
-            if (a.getAttribute('data-dl-name') === dlName) {
-                console.log('Skipping link, same attr::', dlName);
-                continue;
-            }
+            if (a.getAttribute('data-dl-name') === dlName) continue;
 
             changeDownloadName(a, dlName, 'dl: ' + dlName);
         }
 
-        const thumbs = [...document.querySelectorAll('.fileThumb.image-link')];
-
-        // image preview
-        for (const a of thumbs) {
-            let [, originalName] = a.href.split('?f=');
-            originalName = originalName.replaceAll('+', ' ');
-
-            const dlName = getImageDownloadName({ ...pageInfo, filename: originalName });
-
-            if (a.getAttribute('data-dl-name') === dlName) {
-                console.log('Skipping link, same attr::', dlName);
-                continue;
-            }
+        // image previews
+        for (const a of [...document.querySelectorAll('.fileThumb.image-link')]) {
+            const originalName = a.href.split('?f=').at(-1).replaceAll('+', ' ');
+            const dlName = getImageDownloadName({ ...pageInfo, filename: a.download });
+            if (a.getAttribute('data-dl-name') === dlName) continue;
 
             changeDownloadName(a, dlName);
 
             const span = document.createElement('span');
             span.innerText = originalName;
             span.className = 'kmn-preview-thumb';
-            a.appendChild(span);
+            a.appendChild(span.cloneNode(true));
 
-            // allow to open in a new tab when ctrl+LMB
-            a.onclick = (e) => {
+            const container = a.parentElement.parentElement;
+
+            a.addEventListener('click', async (e) => {
+                // allow to open in a new tab when ctrl+LMB
                 if (e.ctrlKey) {
                     e.preventDefault();
                     e.stopPropagation();
                     openInNewTab(a.href);
+                } else {
+                    const isDetached = await waitFor(() => !a.isConnected, 3000, 100).catch(() => false);
+                    if (!isDetached) return;
+
+                    const img = await waitFor(() => container.querySelector('img'), 3000);
+                    changeDownloadName(img, dlName);
+                    img.parentElement.appendChild(span.cloneNode(true));
                 }
-            };
+            });
         }
 
         // remove dupe links, kmn sometimes duplicates the 1st image for no reason
-        for (const a of thumbs) {
+        for (const a of [...document.querySelectorAll('.fileThumb.image-link')]) {
             const dlName = a.getAttribute('data-dl-name');
             const sameNameImgs = [...document.querySelectorAll(`[data-dl-name="${dlName}"]:not([data-dupe])`)];
             sameNameImgs.pop();
 
             for (const img of sameNameImgs) {
-                console.log('Dupe::', img);
+                console.log('Removing dupe image preview', { img });
                 // img.style.opacity = '0.3';
                 img.style.display = 'none';
                 img.setAttribute('data-dupe', dlName);
@@ -169,7 +159,6 @@
     }
 
     async function handleUrlChange(url) {
-        console.log('location changed!', url);
         if (url.startsWith('blob:')) {
             console.log('Ignoring blob url');
             return;
@@ -207,11 +196,12 @@
     const style = document.createElement('style');
     document.head.appendChild(style);
     style.textContent = `
-figure:has(.fileThumb.image-link) {
+figure:has(.fileThumb.image-link),
+div[class^="_expanded_"] {
     position: relative;
 }
 
-.fileThumb.image-link .kmn-preview-thumb {
+.kmn-preview-thumb {
     position: absolute;
     color: white;
     width: 100%;
@@ -223,6 +213,10 @@ figure:has(.fileThumb.image-link) {
     text-overflow: ellipsis;
     white-space: nowrap;
     overflow: hidden;
+}
+
+div[class^="_expanded_"] .kmn-preview-thumb {
+    background: #0eb982aa;
 }
 `;
 })();
