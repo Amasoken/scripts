@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         Kemono edit document and image dl links
 // @namespace    http://tampermonkey.net/
-// @version      2025-10-23
+// @version      2025-10-23a
 // @description  Adjust download name for kemono files, hide dupe images
 // @author       Amasoken
 // @match        https://kemono.cr/*
@@ -15,12 +15,26 @@
 (async function () {
     'use strict';
 
+    const normalizeString = (text) => {
+        try {
+            text = decodeURIComponent(text);
+        } catch (error) {
+            console.log('Error decoding:', error);
+        }
+
+        text = text.replaceAll(/\\\/:\*\?"<>/g, '');
+
+        return text;
+    };
+
     const getDocumentDownloadName = ({ userName, timestamp, postTitle, host, userId, postId, filename }) => {
-        return `[${userName}][${timestamp}][${postTitle}] ${filename}`;
+        const name = `[${userName}][${timestamp}][${postTitle}] ${filename}`;
+        return normalizeString(name);
     };
 
     const getImageDownloadName = ({ userName, timestamp, postTitle, host, userId, postId, filename }) => {
-        return `kmn-${host} [${userName}][${userId}-${postId}] ${filename}`;
+        const name = `kmn-${host} [${userName}][${userId}-${postId}] ${filename}`;
+        return normalizeString(name);
     };
 
     const sleep = (ms) => {
@@ -59,7 +73,7 @@
     function changeDownloadName(el, name, innerText) {
         // console.log('Change dl', { for: el, from: el.download || el?.src?.split('?f=').at(-1), to: name });
         const attr = el?.href ? 'href' : 'src';
-        el[attr] = el[attr].split('?')[0] + '?f=' + encodeURIComponent(name);
+        el[attr] = el[attr].split('?')[0] + '?f=' + name;
         if (innerText) el.innerText = 'dl: ' + name;
         el.setAttribute('data-dl-name', name);
     }
@@ -113,14 +127,13 @@
 
         // image previews
         for (const a of [...document.querySelectorAll('.fileThumb.image-link')]) {
-            const originalName = a.href.split('?f=').at(-1).replaceAll('+', ' ');
             const dlName = getImageDownloadName({ ...pageInfo, filename: a.download });
             if (a.getAttribute('data-dl-name') === dlName) continue;
 
             changeDownloadName(a, dlName);
 
             const span = document.createElement('span');
-            span.innerText = originalName;
+            span.innerText = normalizeString(a.download);
             span.className = 'kmn-preview-thumb';
             a.appendChild(span.cloneNode(true));
 
