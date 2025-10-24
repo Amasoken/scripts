@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         Improve e-hentai navigation a bit
 // @namespace    https://github.com/Amasoken/scripts
-// @version      2025-10-21
+// @version      2025-10-24
 // @description  Add border indicator to gif images, similar how it's done with video
 // @author       Amasoken
 // @match        https://exhentai.org/*
@@ -140,7 +140,7 @@ border: none; padding: 6px 12px; cursor: pointer; margin-left: 20px;`;
         if (controls.displayNames) {
             style.textContent += `#gdt div[title]::after { content: attr(title); display: inline-block;
 background-color: ${theme.primaryBg}; color: ${theme.primaryColor}; width: 100%; font-size: 12px; padding: 0 0 5px 0; position: absolute;
-top: -15px; left: -1px; border: 1px solid ${theme.primaryColor}; }
+top: -15px; left: -1px; border: 1px solid ${theme.primaryColor}; text-overflow: ellipsis; overflow: hidden; }
 `;
         }
 
