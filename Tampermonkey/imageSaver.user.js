@@ -1,11 +1,12 @@
 // ==UserScript==
 // @name         Open/save images with RMB without prompt on Gelbooru/Danbooru/etc
 // @namespace    https://github.com/Amasoken/scripts
-// @version      0.34
+// @version      2026-01-02
 // @description  interact with images using RMB and modifier keys
 // @author       Amasoken
 // @match        http*://*/*
 // @grant        GM_download
+// @grant        unsafeWindow
 // @license      MIT
 // @downloadURL  https://github.com/Amasoken/scripts/raw/master/Tampermonkey/imageSaver.user.js
 // @updateURL    https://github.com/Amasoken/scripts/raw/master/Tampermonkey/imageSaver.user.js
@@ -49,6 +50,21 @@ shift + RMB: Close the tab.
 
     // sites as pixiv will block requests with no refferer with 403 error, so keep the refferer for these
     const KEEP_REFFERER_ORIGINS_LIST = ['https://www.pixiv.net', 'https://hitomi.la'];
+    const USERSCRIPT_SETTINGS_KEY = 'userscript-image-saver-config';
+
+    let dlPreference = '';
+    const preference = {
+        get: () => {
+            return localStorage.getItem(USERSCRIPT_SETTINGS_KEY) ?? '';
+        },
+        set: (data) => {
+            console.log('Set dl preference to', data);
+            dlPreference = data;
+            localStorage.setItem(USERSCRIPT_SETTINGS_KEY, data);
+        },
+    };
+
+    dlPreference = preference.get();
 
     const isTargetImage = (e) => e.target.tagName === 'IMG' && e.target.src;
     const isImageOnlyPage = Boolean(document.body) && document.querySelector('body img') === document.body.lastChild;
@@ -242,14 +258,14 @@ shift + RMB: Close the tab.
 
         if (url.includes('kemono.cr/data') && url.includes('?f=')) {
             let [, originalName] = url.split('?f=');
-            originalName = originalName.replaceAll('+', ' ');
+            originalName = decodeURI(originalName).replaceAll('+', ' ');
 
             const splitName = originalName.split('.');
             const originalExt = splitName.pop();
             name = splitName.join('.');
 
             if (ext !== originalExt) {
-                console.log('Extension mismatch');
+                console.log('Extension mismatch', { ext, originalExt });
                 ext = originalExt;
             }
         }
@@ -283,6 +299,8 @@ shift + RMB: Close the tab.
             }
 
             case /kem(?:o)no\.cr/.test(host): {
+                if (unsafeWindow.__kmn_link_editor_userscript_active) break;
+
                 try {
                     const usernameElement = document.querySelector('.post__user-name');
                     const username = usernameElement.innerText;
@@ -353,6 +371,11 @@ shift + RMB: Close the tab.
     }
 
     function saveImageWithACrossOriginHack(url) {
+        if (!isUsingIFrames) {
+            isUsingIFrames = true;
+            window.addEventListener('message', handleIFrameMessage);
+        }
+
         const imageUrl = new URL(url);
         imageUrl.searchParams.append(CORS_HACK_PARAM, '');
 
@@ -360,6 +383,8 @@ shift + RMB: Close the tab.
 
         // openInNewTab(imageUrl, true);
         openInIFrame(imageUrl);
+
+        return true;
     }
 
     function isSameOrigin(link1, link2) {
@@ -384,56 +409,75 @@ shift + RMB: Close the tab.
         }
     }
 
-    function saveImage(url, shouldCloseTab) {
-        url = adjustUrlIfNeeded(url);
+    function downloadFn({ url, shouldCloseTab, fileName }) {
+        return {
+            plain() {
+                saveImageWithA(url, fileName);
+                if (shouldCloseTab) closeWindow();
+                return true;
+            },
+            fetch() {
+                return downloadImageWithFetch(url, fileName);
+            },
+            gm() {
+                return new Promise((resolve, reject) => {
+                    GM_download({
+                        url,
+                        name: fileName,
+                        onload: () => {
+                            resolve({ success: true });
+                            shouldCloseTab && closeWindow();
+                        },
+                        onerror: (error) => {
+                            reject({ success: false, error });
+                        },
+                    });
+                });
+            },
+            iframe() {
+                return saveImageWithACrossOriginHack(url);
+            },
+        };
+    }
 
+    async function saveImage(url, shouldCloseTab) {
+        url = adjustUrlIfNeeded(url);
         const fileName = getFileName(url);
+        const download = downloadFn({ url, shouldCloseTab, fileName });
         console.log('Trying to save image', { fileName, url });
 
         // for same origin download with A tag since it's faster than waiting for onload
         if (isSameOrigin(window.location.href, url)) {
-            console.log('Same origin, using <a> element');
-            saveImageWithA(url, fileName);
-            if (shouldCloseTab) closeWindow();
-        } else {
-            // try fetch first, chances are it works fine without CORS
-            console.log('Cross origin. Trying to use fetch...');
-            downloadImageWithFetch(url, fileName).then((success) => {
-                if (success) {
-                    console.log('Done.');
-                    return;
-                }
-
-                console.log('Cross origin, using GM_download');
-                GM_download({
-                    url,
-                    name: fileName,
-                    onload: () => {
-                        console.log('Success');
-                        shouldCloseTab && closeWindow();
-                    },
-                    onerror: (error) => {
-                        console.log('GM_download error: ', error);
-
-                        if (error.error === 'not_whitelisted') {
-                            // possibly webp
-                            console.log('Image is possibly webp, trying download with <a> element');
-                            saveImageWithA(url, fileName);
-                            if (shouldCloseTab) closeWindow();
-                        } else {
-                            console.log('As a last resort, trying to download image in a new tab to avoid CORS');
-                            if (!isUsingIFrames) {
-                                isUsingIFrames = true;
-
-                                window.addEventListener('message', handleIFrameMessage);
-                            }
-
-                            saveImageWithACrossOriginHack(url);
-                        }
-                    },
-                });
-            });
+            return download.plain();
         }
+
+        if (dlPreference && Object.keys(download).includes(dlPreference)) {
+            const result = await download[dlPreference]();
+            if (result === true || result?.success === true) return;
+        }
+
+        // try fetch first, chances are it works fine without CORS
+        if (await download.fetch()) {
+            return preference.set('fetch');
+        }
+
+        console.log('Cross origin, using GM_download');
+        const { error, success } = await download.gm().catch((error) => ({ error }));
+        if (success) {
+            return preference.set('gm');
+        }
+
+        console.log('got error::', error);
+
+        if (error.error === 'not_whitelisted') {
+            console.log('Image is possibly webp, trying download with <a> element');
+            preference.set('');
+            return download.plain();
+        }
+
+        console.log('As a last resort, trying to download image in a new tab to avoid CORS');
+        download.iframe();
+        return preference.set('iframe');
     }
 })();
 

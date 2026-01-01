@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         Kemono edit document and image dl links
 // @namespace    http://tampermonkey.net/
-// @version      2025-10-23a
+// @version      2026-01-02
 // @description  Adjust download name for kemono files, hide dupe images
 // @author       Amasoken
 // @match        https://kemono.cr/*
@@ -14,6 +14,8 @@
 
 (async function () {
     'use strict';
+
+    window.__kmn_link_editor_userscript_active = true;
 
     const normalizeString = (text) => {
         try {
