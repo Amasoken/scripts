@@ -40,19 +40,21 @@
     }
 
     function getIdFromScripts() {
-        const scripts = selectAll('script');
+        const nextScript = document.querySelector('script#__NEXT_DATA__');
+        const scripts = nextScript ? [nextScript] : selectAll('script').filter((e) => e.innerText.includes('creator'));
 
-        const search = `\\"creator\\":`;
-        const ids = scripts
-            .filter((s) => s.innerText?.includes(search))
-            .map((e) => {
-                const index = e.innerText.indexOf(search);
-                const searchStr = e.innerText.substring(index, index + 200);
-                const [, maybeId] = searchStr.match(/\\"creator\\":\{.*?data.*?\\"id\\":\\"(\d+)\\"/) ?? [];
-                return maybeId;
-            });
+        for (const script of scripts) {
+            const text = script.innerText;
+            let index = text.indexOf(`"creator":{"data`);
+            if (index < 0) index = text.indexOf(`\\"creator\\":{\\"data`);
+            if (index < 0) continue;
 
-        return ids.filter((id) => id)[0];
+            const searchStr = text.substring(index, index + 100);
+            const [, maybeId] = searchStr.match(/\\?"id\\?":\\?"(\d*?)\\?"/) ?? [];
+            if (maybeId) return maybeId;
+        }
+
+        return null;
     }
 
     function getPId() {
