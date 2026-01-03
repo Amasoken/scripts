@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         Display UID on Pixiv, Fanbox, Patreon
 // @namespace    https://github.com/Amasoken/scripts
-// @version      2025-09-10
+// @version      2026-01-03
 // @description  Display UID on Pixiv, Fanbox, Patreon
 // @author       Amasoken
 // @match        https://www.patreon.com/*
@@ -106,7 +106,19 @@
 
         // mobile
         userId = button?.parentNode?.parentNode?.querySelector('a')?.href?.split(/\//g)?.at(-1);
-        if (userId) return userId;
+        if (userId !== 'request') return userId;
+
+        const links = button?.parentNode?.parentNode?.parentNode?.querySelectorAll('a');
+        const profileIds = [...links]
+            .map((e) => e.href)
+            .filter((link) => link.includes('/users/'))
+            .map((link) => link.split('/users/').at(-1).split('/')[0]);
+        const uniqueIds = Array.from(new Set(profileIds));
+
+        if (uniqueIds.length > 1) console.log('Multiple ids found:', uniqueIds);
+        userId = uniqueIds[0];
+
+        if (/^\d+$/.test(userId)) return userId;
 
         // mobile but btn with no id
         // try to get from the url
