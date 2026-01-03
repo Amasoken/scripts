@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         Display UID on Pixiv, Fanbox, Patreon
 // @namespace    https://github.com/Amasoken/scripts
-// @version      2025-09-10
+// @version      2026-01-03
 // @description  Display UID on Pixiv, Fanbox, Patreon
 // @author       Amasoken
 // @match        https://www.patreon.com/*
@@ -40,19 +40,21 @@
     }
 
     function getIdFromScripts() {
-        const scripts = selectAll('script');
+        const nextScript = document.querySelector('script#__NEXT_DATA__');
+        const scripts = nextScript ? [nextScript] : selectAll('script').filter((e) => e.innerText.includes('creator'));
 
-        const search = `\\"creator\\":`;
-        const ids = scripts
-            .filter((s) => s.innerText?.includes(search))
-            .map((e) => {
-                const index = e.innerText.indexOf(search);
-                const searchStr = e.innerText.substring(index, index + 200);
-                const [, maybeId] = searchStr.match(/\\"creator\\":\{.*?data.*?\\"id\\":\\"(\d+)\\"/) ?? [];
-                return maybeId;
-            });
+        for (const script of scripts) {
+            const text = script.innerText;
+            let index = text.indexOf(`"creator":{"data`);
+            if (index < 0) index = text.indexOf(`\\"creator\\":{\\"data`);
+            if (index < 0) continue;
 
-        return ids.filter((id) => id)[0];
+            const searchStr = text.substring(index, index + 100);
+            const [, maybeId] = searchStr.match(/\\?"id\\?":\\?"(\d*?)\\?"/) ?? [];
+            if (maybeId) return maybeId;
+        }
+
+        return null;
     }
 
     function getPId() {
@@ -106,7 +108,19 @@
 
         // mobile
         userId = button?.parentNode?.parentNode?.querySelector('a')?.href?.split(/\//g)?.at(-1);
-        if (userId) return userId;
+        if (userId !== 'request') return userId;
+
+        const links = button?.parentNode?.parentNode?.parentNode?.querySelectorAll('a');
+        const profileIds = [...links]
+            .map((e) => e.href)
+            .filter((link) => link.includes('/users/'))
+            .map((link) => link.split('/users/').at(-1).split('/')[0]);
+        const uniqueIds = Array.from(new Set(profileIds));
+
+        if (uniqueIds.length > 1) console.log('Multiple ids found:', uniqueIds);
+        userId = uniqueIds[0];
+
+        if (/^\d+$/.test(userId)) return userId;
 
         // mobile but btn with no id
         // try to get from the url
