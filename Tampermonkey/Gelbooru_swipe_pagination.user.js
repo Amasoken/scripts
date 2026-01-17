@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         Boorus Swipe Pagination
 // @namespace    https://github.com/Amasoken/scripts
-// @version      2025-08-25
+// @version      2026-01-17
 // @description  Add swipe pagination for gelbooru and some other sites (mobile)
 // @author       Amasoken
 // @match        https://rule34.xxx/*
@@ -32,8 +32,8 @@
     // swipe LEFT > go NEXT
     const SELECTORS = {
         'gelbooru.com': {
-            left: `a[alt="next"], #paginator b+a, .alert.alert-info:not([id]) > a:last-of-type`,
-            right: `a[alt="back"], #paginator a:has(+b), .alert.alert-info:not([id]) > a:first-of-type`,
+            left: `a[alt="next"], #paginator b+a, .mainBodyPadding > .alert.alert-info:not([id]) > a:last-of-type`,
+            right: `a[alt="back"], #paginator a:has(+b), .mainBodyPadding > .alert.alert-info:not([id]) > a:first-of-type`,
         },
         'rule34.xxx': {
             left: `#post-list a[alt="next"], #next_search_link`,
@@ -88,7 +88,8 @@
             const selector = SELECTORS?.[window.location.host]?.[direction];
 
             if (selector) {
-                document.querySelector(selector)?.click();
+                const elem = document.querySelector(selector);
+                elem?.click();
                 return true;
             }
         }
