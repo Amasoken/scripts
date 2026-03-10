@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         Kemono edit document and image dl links
 // @namespace    http://tampermonkey.net/
-// @version      2026-01-02
+// @version      2026-03-10
 // @description  Adjust download name for kemono files, hide dupe images
 // @author       Amasoken
 // @match        https://kemono.cr/*
@@ -75,7 +75,7 @@
     function changeDownloadName(el, name, innerText) {
         // console.log('Change dl', { for: el, from: el.download || el?.src?.split('?f=').at(-1), to: name });
         const attr = el?.href ? 'href' : 'src';
-        el[attr] = el[attr].split('?')[0] + '?f=' + name;
+        el[attr] = el[attr].split('?')[0] + '?f=' + encodeURIComponent(name);
         if (innerText) el.innerText = 'dl: ' + name;
         el.setAttribute('data-dl-name', name);
     }
