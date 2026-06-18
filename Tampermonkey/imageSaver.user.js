@@ -1,11 +1,12 @@
 // ==UserScript==
 // @name         Open/save images with RMB without prompt on Gelbooru/Danbooru/etc
 // @namespace    https://github.com/Amasoken/scripts
-// @version      2026-01-02
+// @version      2026-06-18
 // @description  interact with images using RMB and modifier keys
 // @author       Amasoken
 // @match        http*://*/*
 // @grant        GM_download
+// @grant        GM_xmlhttpRequest
 // @grant        unsafeWindow
 // @license      MIT
 // @downloadURL  https://github.com/Amasoken/scripts/raw/master/Tampermonkey/imageSaver.user.js
@@ -55,7 +56,9 @@ shift + RMB: Close the tab.
     let dlPreference = '';
     const preference = {
         get: () => {
-            return localStorage.getItem(USERSCRIPT_SETTINGS_KEY) ?? '';
+            const pref = localStorage.getItem(USERSCRIPT_SETTINGS_KEY) ?? '';
+            console.log('Got dl preference:', pref);
+            return pref;
         },
         set: (data) => {
             console.log('Set dl preference to', data);
@@ -421,14 +424,47 @@ shift + RMB: Close the tab.
             },
             gm() {
                 return new Promise((resolve, reject) => {
-                    GM_download({
+                    // raw GM_download no longer works for cross origin dls. try to dl as a blob
+                    GM_xmlhttpRequest({
+                        method: 'GET',
                         url,
-                        name: fileName,
-                        onload: () => {
-                            resolve({ success: true });
-                            shouldCloseTab && closeWindow();
+                        responseType: 'blob', // Force the response into a binary data blob
+                        withCredentials: true,
+                        headers: {
+                            // spoof the referrer to avoid hotlink protections (full image on gelbooru won't load without this)
+                            Referer: window.location.href,
+                            Origin: window.location.origin,
+                            'User-Agent': navigator.userAgent,
+                            Accept: 'image/avif,image/webp,image/apng,image/svg+xml,image/*,*/*;q=0.8',
                         },
-                        onerror: (error) => {
+                        onload: function (response) {
+                            console.log({ response });
+
+                            const contentType = response.responseHeaders.toLowerCase();
+                            if (contentType.includes('text/html')) {
+                                reject({ success: false, error: 'GM_xmlhttpRequest returned text/html' });
+                                return;
+                            }
+
+                            if (response.status >= 200 && response.status < 300) {
+                                const blob = response.response;
+
+                                GM_download({
+                                    url: blob, // pass blob directly instead of url
+                                    name: fileName,
+                                    onload: () => {
+                                        resolve({ success: true });
+                                        if (shouldCloseTab) closeWindow();
+                                    },
+                                    onerror: (error) => {
+                                        reject({ success: false, error });
+                                    },
+                                });
+                            } else {
+                                reject({ success: false, error });
+                            }
+                        },
+                        onerror: function (error) {
                             reject({ success: false, error });
                         },
                     });
@@ -452,8 +488,12 @@ shift + RMB: Close the tab.
         }
 
         if (dlPreference && Object.keys(download).includes(dlPreference)) {
-            const result = await download[dlPreference]();
-            if (result === true || result?.success === true) return;
+            try {
+                const result = await download[dlPreference]();
+                if (result === true || result?.success === true) return;
+            } catch (error) {
+                console.log('got error downloading with preffered method::', error);
+            }
         }
 
         // try fetch first, chances are it works fine without CORS
@@ -475,7 +515,7 @@ shift + RMB: Close the tab.
             return download.plain();
         }
 
-        console.log('As a last resort, trying to download image in a new tab to avoid CORS');
+        console.log('As a last resort, trying to download image via iframe to avoid CORS');
         download.iframe();
         return preference.set('iframe');
     }
