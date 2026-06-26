@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         Open/save images with RMB without prompt on Gelbooru/Danbooru/etc
 // @namespace    https://github.com/Amasoken/scripts
-// @version      2026-06-18
+// @version      2026-06-26
 // @description  interact with images using RMB and modifier keys
 // @author       Amasoken
 // @match        http*://*/*
@@ -259,7 +259,7 @@ shift + RMB: Close the tab.
             ext = url.match(/format=(\w+)/)?.[1];
         }
 
-        if (url.includes('kemono.cr/data') && url.includes('?f=')) {
+        if (/(?:pawchive\.st|kemono\.cr)\/data.+\?f=/.test(url)) {
             let [, originalName] = url.split('?f=');
             originalName = decodeURI(originalName).replaceAll('+', ' ');
 
@@ -438,8 +438,6 @@ shift + RMB: Close the tab.
                             Accept: 'image/avif,image/webp,image/apng,image/svg+xml,image/*,*/*;q=0.8',
                         },
                         onload: function (response) {
-                            console.log({ response });
-
                             const contentType = response.responseHeaders.toLowerCase();
                             if (contentType.includes('text/html')) {
                                 reject({ success: false, error: 'GM_xmlhttpRequest returned text/html' });

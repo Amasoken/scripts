@@ -1,12 +1,13 @@
 // ==UserScript==
 // @name         Kemono navigation hotkeys
 // @namespace    http://tampermonkey.net/
-// @version      2025-10-21
+// @version      2026-06-26
 // @description  Kemono navigation hotkeys
 // @author       Amasoken
 // @match        https://kemono.cr/*
 // @match        https://coomer.st/*
-// @icon         https://www.google.com/s2/favicons?sz=64&domain=kemono.su
+// @match        https://pawchive.st/*
+// @icon         https://www.google.com/s2/favicons?sz=64&domain=pawchive.st
 // @grant        none
 // @downloadURL  https://github.com/Amasoken/scripts/raw/master/Tampermonkey/kemono-hotkeys.user.js
 // @updateURL    https://github.com/Amasoken/scripts/raw/master/Tampermonkey/kemono-hotkeys.user.js
@@ -17,14 +18,14 @@
 
     console.log('init hotkeys');
 
-    const getImages = () =>
-        [
-            ...document.querySelectorAll(
-                'a.image-link>img, div[class*="_expanded"]>img, section>a>img, div[class*="imageContainer"]'
-            ),
-        ]
-            .filter((e) => e.parentElement.style.display !== 'none')
+    const getImages = () => {
+        const selector = 'a.image-link>img, div[class*="_expanded"]>img, section>a>img, div[class*="imageContainer"]';
+        const images = [...document.querySelectorAll(selector)]
+            .filter((e) => e.parentElement.style.display !== 'none' && e.style.display !== 'none')
             .map((e) => ({ image: e, rect: e.getBoundingClientRect() }));
+
+        return images;
+    };
 
     function isInViewport(element) {
         const rect = element.getBoundingClientRect();
@@ -46,42 +47,42 @@
     const actions = {
         // Jump to the first image
         4: () => {
-            const imgs = getImages();
-            imgs[0]?.image?.scrollIntoView();
+            const images = getImages();
+            images[0]?.image?.scrollIntoView();
         },
         // Jump to the last image
         1: () => {
-            const imgs = getImages();
-            imgs.at(-1)?.image?.scrollIntoView();
+            const images = getImages();
+            images.at(-1)?.image?.scrollIntoView();
         },
         // Jump to the next image
         5: () => {
-            const imgs = getImages();
-            const index = imgs.findIndex((e) => e.rect.y > MIN_Y);
-            const img = imgs[index - 1] ?? imgs[index] ?? imgs.at(0);
+            const images = getImages();
+            const index = images.findIndex((e) => e.rect.y > MIN_Y);
+            const img = images[index - 1] ?? images[index] ?? images.at(0);
             img?.image?.scrollIntoView();
         },
         // Jump to the previous image
         2: () => {
-            const imgs = getImages();
-            const index = imgs.findIndex((e) => e.rect.y > MAX_Y);
-            const img = imgs[index] ?? imgs.at(-1);
+            const images = getImages();
+            const index = images.findIndex((e) => e.rect.y > MAX_Y);
+            const img = images[index] ?? images.at(-1);
             img?.image?.scrollIntoView();
         },
         // Favorite
         f: () => {
-            document.querySelector('button[class*="favoriteButton"]')?.click();
+            document.querySelector('button[class*="favoriteButton"], button.post__fav')?.click();
         },
         // Favorite
         '.': () => {
-            document.querySelector('button[class*="favoriteButton"]')?.click();
+            document.querySelector('button[class*="favoriteButton"], button.post__fav')?.click();
         },
-        // emulate alt+RMB, which is used for saving imgs in https://github.com/Amasoken/scripts/raw/master/Tampermonkey/imageSaver.user.js
+        // emulate alt+RMB, which is used for saving images in https://github.com/Amasoken/scripts/raw/master/Tampermonkey/imageSaver.user.js
         7: () => {
-            const imgs = getImages();
-            const index = imgs.findIndex((e) => e.rect.y > MAX_Y);
+            const images = getImages();
+            const index = images.findIndex((e) => e.rect.y > MAX_Y);
 
-            const img = imgs[index - 1] ?? imgs[index] ?? imgs.at(-1);
+            const img = images[index - 1] ?? images[index] ?? images.at(-1);
             simulateClick(img?.image, 'contextmenu', {
                 bubbles: true,
                 cancelable: true,
@@ -92,17 +93,20 @@
         },
         // Expand current image (clicks on preview)
         8: () => {
-            const imgs = getImages();
-            const index = imgs.findIndex((e) => e.rect.y > MAX_Y);
-            const img = imgs[index - 1] ?? imgs[index] ?? imgs.at(-1);
+            const images = getImages();
+            const index = images.findIndex((e) => e.rect.y > MAX_Y);
+            const img = images[index - 1] ?? images[index] ?? images.at(-1);
             img?.image?.click();
         },
-        // Expand all imgs in a post
+        // Expand all images in a post
         9: () => {
-            const imgs = getImages();
-            for (const img of imgs) {
-                img.image?.click();
+            const images = getImages();
+            for (const image of images) {
+                image.image?.click();
             }
+        },
+        0: () => {
+            window.history.back();
         },
     };
 
