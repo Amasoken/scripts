@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         Kemono/Pawchive crosslinks
 // @namespace    http://tampermonkey.net/
-// @version      2026-06-26
+// @version      2026-06-29
 // @description  Crosslinks on Kemono to Pawchive and vice versa
 // @author       Amasoken
 // @match        https://kemono.cr/*
@@ -66,9 +66,6 @@
 #user-header__profile--crosslink span {
     color: ${isKemono ? '#cc9d97' : '#e6702f'};
 }
-#user-header__profile--crosslink img {
-    padding-right: 10px;
-}
 .paw-service-wrapper {
     position: relative;
 }
@@ -113,7 +110,7 @@
         newLink.id = id;
         newLink.target = '_blank';
         newLink.href = getAltUrl();
-        newLink.innerHTML = `<span><img src="${icon}"></span> <span>${crosslinkName}</span>`;
+        newLink.innerHTML = `<img src="${icon}">`;
         headerLink.parentNode.insertBefore(newLink, headerLink.nextSibling);
     }
 
