@@ -1,11 +1,12 @@
 // ==UserScript==
 // @name         Kemono/Pawchive crosslinks
 // @namespace    http://tampermonkey.net/
-// @version      2026-06-29
+// @version      2026-07-04
 // @description  Crosslinks on Kemono to Pawchive and vice versa
 // @author       Amasoken
 // @match        https://kemono.cr/*
 // @match        https://pawchive.st/*
+// @match        https://pawchive.pw/*
 // @icon         https://www.google.com/s2/favicons?sz=64&domain=pawchive.st
 // @grant        none
 // @downloadURL  https://github.com/Amasoken/scripts/raw/master/Tampermonkey/kemono-crosslinks.user.js
