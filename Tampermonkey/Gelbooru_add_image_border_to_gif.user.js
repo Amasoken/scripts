@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         Add border to gif on Gelbooru
 // @namespace    https://github.com/Amasoken/scripts
-// @version      2026-06-26
+// @version      2026-07-04
 // @description  Add border indicator to gif images, similar how it's done with video
 // @author       Amasoken
 // @match        https://exhentai.org/*
@@ -14,6 +14,7 @@
 // @match        https://rule34.xxx/index.php?page=post&s=view*
 // @match        https://kemono.cr/*
 // @match        https://pawchive.st/*
+// @match        https://pawchive.pw/*
 // @grant        none
 // @downloadURL  https://github.com/Amasoken/scripts/raw/master/Tampermonkey/Gelbooru_add_image_border_to_gif.user.js
 // @updateURL    https://github.com/Amasoken/scripts/raw/master/Tampermonkey/Gelbooru_add_image_border_to_gif.user.js

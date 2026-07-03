@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         Boorus Swipe Pagination
 // @namespace    https://github.com/Amasoken/scripts
-// @version      2026-06-29
+// @version      2026-07-04
 // @description  Add swipe pagination for gelbooru and some other sites (mobile)
 // @author       Amasoken
 // @match        https://rule34.xxx/*
@@ -11,6 +11,7 @@
 // @match        https://e621.net/*
 // @match        https://kemono.cr/*
 // @match        https://pawchive.st/*
+// @match        https://pawchive.pw/*
 // @grant        none
 // @downloadURL  https://github.com/Amasoken/scripts/raw/master/Tampermonkey/Gelbooru_swipe_pagination.user.js
 // @updateURL    https://github.com/Amasoken/scripts/raw/master/Tampermonkey/Gelbooru_swipe_pagination.user.js

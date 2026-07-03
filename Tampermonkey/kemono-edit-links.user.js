@@ -1,12 +1,13 @@
 // ==UserScript==
 // @name         Kemono edit document and image dl links
 // @namespace    http://tampermonkey.net/
-// @version      2026-06-26
+// @version      2026-07-04
 // @description  Adjust download name for kemono files, hide dupe images
 // @author       Amasoken
 // @match        https://kemono.cr/*
 // @match        https://coomer.st/*
 // @match        https://pawchive.st/*
+// @match        https://pawchive.pw/*
 // @icon         https://www.google.com/s2/favicons?sz=64&domain=pawchive.st
 // @grant        none
 // @downloadURL  https://github.com/Amasoken/scripts/raw/master/Tampermonkey/kemono-edit-links.user.js
