@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         Display UID on Pixiv, Fanbox, Patreon
 // @namespace    https://github.com/Amasoken/scripts
-// @version      2026-06-26
+// @version      2026-07-04
 // @description  Display UID on Pixiv, Fanbox, Patreon
 // @author       Amasoken
 // @match        https://www.patreon.com/*
@@ -19,7 +19,7 @@
 
     const baseServiceUrl = {
         kemono: 'https://kemono.cr',
-        pawchive: 'https://pawchive.st',
+        pawchive: 'https://pawchive.pw',
     };
 
     const icons = {

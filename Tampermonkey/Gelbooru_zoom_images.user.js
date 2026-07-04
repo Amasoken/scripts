@@ -1,11 +1,10 @@
 // ==UserScript==
 // @name         Zoom for images
 // @namespace    https://github.com/Amasoken/scripts
-// @version      2026-07-04
+// @version      2026-07-04-a
 // @description  Zoom images on Gelbooru
 // @author       Amasoken
 // @match        https://kemono.cr/*
-// @match        https://pawchive.st/*
 // @match        https://pawchive.pw/*
 // @match        https://exhentai.org/*
 // @match        https://e-hentai.org/*

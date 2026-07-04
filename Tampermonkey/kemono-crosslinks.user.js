@@ -1,13 +1,12 @@
 // ==UserScript==
 // @name         Kemono/Pawchive crosslinks
 // @namespace    http://tampermonkey.net/
-// @version      2026-07-04
+// @version      2026-07-04-a
 // @description  Crosslinks on Kemono to Pawchive and vice versa
 // @author       Amasoken
 // @match        https://kemono.cr/*
-// @match        https://pawchive.st/*
 // @match        https://pawchive.pw/*
-// @icon         https://www.google.com/s2/favicons?sz=64&domain=pawchive.st
+// @icon         https://www.google.com/s2/favicons?sz=64&domain=pawchive.pw
 // @grant        none
 // @downloadURL  https://github.com/Amasoken/scripts/raw/master/Tampermonkey/kemono-crosslinks.user.js
 // @updateURL    https://github.com/Amasoken/scripts/raw/master/Tampermonkey/kemono-crosslinks.user.js
@@ -25,9 +24,14 @@
     const isKemono = window.location.href.includes('https://kemono.cr');
     const crosslinkName = isKemono ? 'Pawchive' : 'Kemono';
 
+    const baseServiceUrl = {
+        kemono: 'https://kemono.cr',
+        pawchive: 'https://pawchive.pw',
+    };
+
     function getAltUrl(url = window.location.href) {
-        if (isKemono) return url.replace('https://kemono.cr', 'https://pawchive.st');
-        return url.replace('https://pawchive.st', 'https://kemono.cr');
+        if (isKemono) return url.replace(baseServiceUrl.kemono, baseServiceUrl.pawchive);
+        return url.replace(baseServiceUrl.pawchive, baseServiceUrl.kemono);
     }
 
     async function sleep(ms) {
@@ -197,7 +201,7 @@
     // ==================================
 
     const isUserPage = (url = window.location.href) => {
-        return /(?:pawchive\.st|kemono\.cr)\/(?:patreon|fanbox)\/user\/(?!.*\/post)\d+/.test(url);
+        return /(?:pawchive\.\w+|kemono\.\w+)\/(?:patreon|fanbox)\/user\/(?!.*\/post)\d+/.test(url);
     };
 
     let lastUrl = '';
@@ -221,8 +225,8 @@
             return addCrossLinkToUserPage();
         }
 
-        if (/pawchive\.st\/(?:account|shares|post|importer|search_hash|dms|posts)/.test(url)) return;
-        if (/kemono\.cr\/(?:account\/(?:review|keys)|importer|search_hash|dms|posts)/.test(url)) return;
+        if (/pawchive\.\w+\/(?:account|shares|post|importer|search_hash|dms|posts)/.test(url)) return;
+        if (/kemono\.\w+\/(?:account\/(?:review|keys)|importer|search_hash|dms|posts)/.test(url)) return;
 
         const userCard = await waitFor(() => document.querySelector('.user-card'), 3000).catch(() => null);
         if (userCard) {
