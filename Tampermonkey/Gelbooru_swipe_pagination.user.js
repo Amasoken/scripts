@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         Boorus Swipe Pagination
 // @namespace    https://github.com/Amasoken/scripts
-// @version      2026-07-04
+// @version      2026-07-04-a
 // @description  Add swipe pagination for gelbooru and some other sites (mobile)
 // @author       Amasoken
 // @match        https://rule34.xxx/*
@@ -10,7 +10,6 @@
 // @match        https://e-hentai.org/*
 // @match        https://e621.net/*
 // @match        https://kemono.cr/*
-// @match        https://pawchive.st/*
 // @match        https://pawchive.pw/*
 // @grant        none
 // @downloadURL  https://github.com/Amasoken/scripts/raw/master/Tampermonkey/Gelbooru_swipe_pagination.user.js
@@ -53,7 +52,7 @@
             left: `#paginator-top .pagination-button-current+a:not(.pagination-button-disabled), .next`,
             right: `#paginator-top a:has(+.pagination-button-current):not(.pagination-button-disabled), .prev`,
         },
-        'pawchive.st': {
+        'pawchive.pw': {
             left: `#paginator-top .pagination-button-current+a:not(.pagination-button-disabled), .next`,
             right: `#paginator-top a:has(+.pagination-button-current):not(.pagination-button-disabled), .prev`,
         },

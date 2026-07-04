@@ -1,14 +1,13 @@
 // ==UserScript==
 // @name         Kemono navigation hotkeys
 // @namespace    http://tampermonkey.net/
-// @version      2026-07-04
+// @version      2026-07-04-a
 // @description  Kemono navigation hotkeys
 // @author       Amasoken
 // @match        https://kemono.cr/*
 // @match        https://coomer.st/*
-// @match        https://pawchive.st/*
 // @match        https://pawchive.pw/*
-// @icon         https://www.google.com/s2/favicons?sz=64&domain=pawchive.st
+// @icon         https://www.google.com/s2/favicons?sz=64&domain=pawchive.pw
 // @grant        none
 // @downloadURL  https://github.com/Amasoken/scripts/raw/master/Tampermonkey/kemono-hotkeys.user.js
 // @updateURL    https://github.com/Amasoken/scripts/raw/master/Tampermonkey/kemono-hotkeys.user.js

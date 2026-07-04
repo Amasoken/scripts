@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         Open/save images with RMB without prompt on Gelbooru/Danbooru/etc
 // @namespace    https://github.com/Amasoken/scripts
-// @version      2026-06-26
+// @version      2026-07-04
 // @description  interact with images using RMB and modifier keys
 // @author       Amasoken
 // @match        http*://*/*
@@ -259,7 +259,7 @@ shift + RMB: Close the tab.
             ext = url.match(/format=(\w+)/)?.[1];
         }
 
-        if (/(?:pawchive\.st|kemono\.cr)\/data.+\?f=/.test(url)) {
+        if (/(?:pawchive\.\w+|kemono\.\w+)\/data.+\?f=/.test(url)) {
             let [, originalName] = url.split('?f=');
             originalName = decodeURI(originalName).replaceAll('+', ' ');
 
@@ -301,7 +301,7 @@ shift + RMB: Close the tab.
                 break;
             }
 
-            case /kem(?:o)no\.cr/.test(host): {
+            case /kemono\.\w+|pawchive\.\w+/.test(host): {
                 if (unsafeWindow.__kmn_link_editor_userscript_active) break;
 
                 try {
@@ -309,7 +309,7 @@ shift + RMB: Close the tab.
                     const username = usernameElement.innerText;
 
                     const [, host, userId, postId] = window.location.href.match(
-                        /kemono\.cr\/(\w+)\/user\/(\d+)\/post\/(\d+)/
+                        /(?:pawchive\.\w+|kemono\.\w+)\/(\w+)\/user\/(\d+)\/post\/(\d+)/
                     );
 
                     const prefix = `kmn-${host} [${username}][${userId}-${postId}] `;

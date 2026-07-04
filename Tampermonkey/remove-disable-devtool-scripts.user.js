@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         Remove disable-devtools scripts
 // @namespace    https://github.com/Amasoken/scripts
-// @version      0.2
+// @version      2026-07-04
 // @description  Remove scripts with certain address or keyword
 // @author       Amasoken
 // @match        http*://*
@@ -16,7 +16,18 @@
     'use strict';
 
     const SCRIPT_TEXT_FILTER = ['DisableDevtool', 'DevtoolsDetector', 'adblock', 'devtool'];
-    SCRIPT_TEXT_FILTER.push('AdSense', 'contextmenu', '_ads');
+    SCRIPT_TEXT_FILTER.push(
+        'AdSense',
+        'contextmenu',
+        '_ads',
+        '#dl_bittorent',
+        "'ructo'+'r'",
+        'setupEventListenerProxy',
+        'advanced_ads',
+        'Adblock',
+        'AdBlock',
+        'adshield'
+    );
 
     const SCRIPT_SRC_FILTER = ['disable-devtool', 'devtools-detector', 'detect2'];
     function filterScript(scriptNode, attribute, filter) {

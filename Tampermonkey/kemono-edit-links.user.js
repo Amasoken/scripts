@@ -1,14 +1,13 @@
 // ==UserScript==
 // @name         Kemono edit document and image dl links
 // @namespace    http://tampermonkey.net/
-// @version      2026-07-04
+// @version      2026-07-04-a
 // @description  Adjust download name for kemono files, hide dupe images
 // @author       Amasoken
 // @match        https://kemono.cr/*
 // @match        https://coomer.st/*
-// @match        https://pawchive.st/*
 // @match        https://pawchive.pw/*
-// @icon         https://www.google.com/s2/favicons?sz=64&domain=pawchive.st
+// @icon         https://www.google.com/s2/favicons?sz=64&domain=pawchive.pw
 // @grant        none
 // @downloadURL  https://github.com/Amasoken/scripts/raw/master/Tampermonkey/kemono-edit-links.user.js
 // @updateURL    https://github.com/Amasoken/scripts/raw/master/Tampermonkey/kemono-edit-links.user.js
@@ -161,7 +160,7 @@ div[class^="_expanded_"] .kmn-preview-thumb, .fileThumb.image-link:has(>img[styl
         const postTitle = document.querySelector('.post__title').innerText;
         const userName = document.querySelector('.post__user-name').innerText;
         const [, host, userId, postId] =
-            window.location.href.match(/(?:kemono\.cr|pawchive\.st)\/(\w+)\/user\/(\d+)\/post\/(\d+)/) ?? [];
+            window.location.href.match(/(?:kemono\.\w+|pawchive\.\w+)\/(\w+)\/user\/(\d+)\/post\/(\d+)/) ?? [];
         const pageInfo = {
             userName,
             timestamp,
