@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         Kemono/Pawchive crosslinks
 // @namespace    http://tampermonkey.net/
-// @version      2026-07-04-a
+// @version      2026-08-08
 // @description  Crosslinks on Kemono to Pawchive and vice versa
 // @author       Amasoken
 // @match        https://kemono.cr/*
@@ -60,7 +60,7 @@
     }
 
     function patchStyle() {
-        const id = 'kemono-crosslinks-style-patch';
+        const id = 'userscript-kemono-crosslinks-style-patch';
         if (document.getElementById(id)) return;
 
         const patchStyle = `
@@ -68,9 +68,7 @@
     display: flex;
     justify-content: space-between;
 }
-#user-header__profile--crosslink span {
-    color: ${isKemono ? '#cc9d97' : '#e6702f'};
-}
+
 .paw-service-wrapper {
     position: relative;
 }
@@ -220,6 +218,8 @@
 
         await waitForLayoutShiftEnd(200, currentNavId);
         if (isStaleNavigation(currentNavId)) return;
+
+        patchStyle();
 
         if (isUserPage(url)) {
             return addCrossLinkToUserPage();

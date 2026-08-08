@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         Add border to gif on Gelbooru
 // @namespace    https://github.com/Amasoken/scripts
-// @version      2026-07-04-a
+// @version      2026-08-08
 // @description  Add border indicator to gif images, similar how it's done with video
 // @author       Amasoken
 // @match        https://exhentai.org/*
@@ -98,12 +98,55 @@ div:has(#resized_notice:not([style*="display: none"])):has(#image[alt*="animated
 }`,
     ];
 
-    const style = document.createElement('style');
-    document.head.appendChild(style);
+    function patchStyle() {
+        const id = 'userscript-image-border-styles';
+        if (document.getElementById(id)) return;
 
-    function updateStyle() {
+        const style = document.createElement('style');
+        style.id = id;
         style.textContent = baseBorderStyle.join('\n');
+        document.head.appendChild(style);
     }
 
-    updateStyle();
+    // ==================================
+
+    let lastUrl = '';
+
+    async function handleUrlChange(url) {
+        if (url.startsWith('blob:')) return;
+        if (url === lastUrl) return;
+        lastUrl = url;
+
+        patchStyle();
+    }
+
+    function watchNavigations() {
+        try {
+            // chromium
+            window.navigation.addEventListener('navigate', (event) => handleUrlChange(event.destination.url));
+        } catch (error) {
+            if (!error.message.includes('window.navigation is undefined')) {
+                console.log('Error setting up navigation listener:', error);
+            }
+
+            // firefox, use patched state functions instead of window.navigation
+            ['pushState', 'replaceState'].forEach((fn) => {
+                const original = history[fn];
+                history[fn] = function (...args) {
+                    const result = original.apply(this, args);
+                    window.dispatchEvent(new Event('locationchange'));
+                    return result;
+                };
+            });
+
+            window.addEventListener('popstate', () => window.dispatchEvent(new Event('locationchange')));
+            window.addEventListener('locationchange', () => handleUrlChange(location.href));
+        }
+    }
+
+    // ==================================
+
+    watchNavigations();
+
+    patchStyle();
 })();

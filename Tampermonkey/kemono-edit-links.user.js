@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         Kemono edit document and image dl links
 // @namespace    http://tampermonkey.net/
-// @version      2026-07-04-a
+// @version      2026-08-08
 // @description  Adjust download name for kemono files, hide dupe images
 // @author       Amasoken
 // @match        https://kemono.cr/*
@@ -20,7 +20,7 @@
 
     // display file name for images
     function patchStyle() {
-        const id = 'kemono-edit-links-style-patch';
+        const id = 'userscript-kemono-edit-links-style-patch';
         if (document.getElementById(id)) return;
 
         const patchStyle = `
@@ -259,6 +259,7 @@ div[class^="_expanded_"] .kmn-preview-thumb, .fileThumb.image-link:has(>img[styl
         await waitForLayoutShiftEnd(200, currentNavId);
         if (isStaleNavigation(currentNavId)) return;
 
+        patchStyle();
         await editLinks();
     }
 

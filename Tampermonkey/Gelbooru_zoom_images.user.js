@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         Zoom for images
 // @namespace    https://github.com/Amasoken/scripts
-// @version      2026-07-04-a
+// @version      2026-08-08
 // @description  Zoom images on Gelbooru
 // @author       Amasoken
 // @match        https://kemono.cr/*
@@ -23,7 +23,7 @@
     let zoomLevel = parseInt(localStorage.getItem('zoom_level')) || 100;
     let fitScreen = JSON.parse(localStorage.getItem('should_fit')) ?? false;
 
-    const selectors = [
+    const imageSelectors = [
         // selectors to apply 'zoom' attribute on
         '#img', // e-hentai.org
         'a.image-link>img', // kemono
@@ -36,8 +36,51 @@
         '#gelcomVideoPlayer', // r34
     ];
 
-    const style = document.createElement('style');
-    document.head.appendChild(style);
+    const imgSelector = imageSelectors.join(', ');
+    const videoSelector = videoSelectors.join(', ');
+    const zoomIndicatorSelector = 'page-zoom-indicator';
+
+    function patchStyle() {
+        const id = 'userscript-zoom-control-style-patch';
+        let style = document.getElementById(id);
+
+        if (!style) {
+            style = document.createElement('style');
+            style.id = id;
+            document.head.appendChild(style);
+        }
+
+        style.textContent = `
+${imgSelector} {
+    zoom: ${zoomLevel}%;
+    ${fitScreen ? `max-height: 100vh; width: auto !important;` : ''}
+}
+${videoSelector} {
+    zoom: ${zoomLevel}%;
+    ${fitScreen ? `max-height: 100vh; ` : ''}
+}
+.${zoomIndicatorSelector} {
+    font-size: 18px;
+    color: #8f838b;
+    font-weight: 700;
+    background: #4f535b;
+    border-radius: 4px;
+    width: auto;
+    min-width: 60px;
+    padding: 0 4px;
+    height: 30px;
+    position: fixed;
+    top: 10px;
+    right: 10px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    z-index: 10000;
+    white-space: nowrap;
+    cursor: pointer;
+}
+.zoom-indicator {${zoomLevel === 100 && !fitScreen ? 'opacity: 40%;' : ''}}`;
+    }
 
     // ====================================================
     let zoomIndicator;
@@ -48,24 +91,7 @@
         console.log('Adding zoom indicator');
 
         if (!zoomIndicator) zoomIndicator = document.createElement('div');
-        zoomIndicator.className = 'zoom-indicator';
-        zoomIndicator.style.cssText = `
-background: #4f535b;
-border-radius: 4px;
-width: auto;
-min-width: 60px;
-padding: 0 4px;
-height: 30px;
-position: fixed;
-top: 10px;
-right: 10px;
-display: flex;
-align-items: center;
-justify-content: center;
-z-index: 10000;
-white-space: nowrap;
-cursor: pointer;
-`;
+        zoomIndicator.className = zoomIndicatorSelector;
 
         zoomIndicator.onclick = (e) => {
             e.preventDefault();
@@ -80,31 +106,14 @@ cursor: pointer;
 
     // ====================================================
 
-    const setZoom = (zoom, fitScreen) => {
-        localStorage.setItem('zoom_level', zoom);
+    const setZoom = () => {
+        localStorage.setItem('zoom_level', zoomLevel);
         localStorage.setItem('should_fit', fitScreen);
 
-        const imgSelector = selectors.join(', ');
-        const videoSelector = videoSelectors.join(', ');
+        patchStyle();
 
-        const indicatorText = zoom + '%' + (fitScreen ? ' fit' : '');
-
-        style.textContent = `
-${imgSelector} {
-    zoom: ${zoom}%;
-    ${fitScreen ? `max-height: 100vh; width: auto !important;` : ''}
-}
-${videoSelector} {
-    zoom: ${zoom}%;
-    ${fitScreen ? `max-height: 100vh; ` : ''}
-}
-.zoom-indicator::before {
-    content: "${indicatorText}";
-    font-size: 18px;
-    color: #8f838b;
-    font-weight: 700;
-}
-.zoom-indicator {${zoom === 100 && !fitScreen ? 'opacity: 40%;' : ''}}`;
+        const indicatorText = zoomLevel + '%' + (fitScreen ? ' fit' : '');
+        zoomIndicator.innerText = indicatorText;
     };
 
     function handleHotKey(key) {
@@ -115,7 +124,7 @@ ${videoSelector} {
 
         if (['+', '-', '*', '/'].includes(key)) {
             addZoomIndicator(); // add indicator if it's missing
-            setZoom(zoomLevel, fitScreen);
+            setZoom();
         }
     }
 
@@ -124,6 +133,46 @@ ${videoSelector} {
 
         handleHotKey(e.key);
     });
+
+    // ==================================
+
+    let lastUrl = '';
+
+    async function handleUrlChange(url) {
+        if (url.startsWith('blob:')) return;
+        if (url === lastUrl) return;
+        lastUrl = url;
+
+        patchStyle();
+    }
+
+    function watchNavigations() {
+        try {
+            // chromium
+            window.navigation.addEventListener('navigate', (event) => handleUrlChange(event.destination.url));
+        } catch (error) {
+            if (!error.message.includes('window.navigation is undefined')) {
+                console.log('Error setting up navigation listener:', error);
+            }
+
+            // firefox, use patched state functions instead of window.navigation
+            ['pushState', 'replaceState'].forEach((fn) => {
+                const original = history[fn];
+                history[fn] = function (...args) {
+                    const result = original.apply(this, args);
+                    window.dispatchEvent(new Event('locationchange'));
+                    return result;
+                };
+            });
+
+            window.addEventListener('popstate', () => window.dispatchEvent(new Event('locationchange')));
+            window.addEventListener('locationchange', () => handleUrlChange(location.href));
+        }
+    }
+
+    // ==================================
+
+    watchNavigations();
 
     addZoomIndicator();
 })();
