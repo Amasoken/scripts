@@ -88,9 +88,9 @@ ${videoSelector} {
     function addZoomIndicator() {
         zoomIndicator = document.querySelector('.zoom-indicator');
         if (zoomIndicator) return;
-        console.log('Adding zoom indicator');
 
-        if (!zoomIndicator) zoomIndicator = document.createElement('div');
+        console.log('Adding zoom indicator');
+        zoomIndicator = document.createElement('div');
         zoomIndicator.className = zoomIndicatorSelector;
 
         zoomIndicator.onclick = (e) => {
