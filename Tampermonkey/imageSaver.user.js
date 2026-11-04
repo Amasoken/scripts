@@ -66,14 +66,24 @@ shift + RMB: Close the tab.
             !isCORSHackUsed && log('Got dl preference:', { pref });
             return pref;
         },
-        set: (data) => {
-            log('Set dl preference to', data);
-            dlPreference = data;
-            localStorage.setItem(USERSCRIPT_SETTINGS_KEY, data);
+        set: (pref) => {
+            log('Set dl preference to', { pref });
+            dlPreference = pref;
+            localStorage.setItem(USERSCRIPT_SETTINGS_KEY, pref);
         },
     };
 
     dlPreference = preference.get();
+
+    const DL_PREF_LAST_SET_KEY = 'userscript-image-saver-last-checked';
+    const lastChecked = Number(localStorage.getItem(DL_PREF_LAST_SET_KEY) ?? '0');
+    if (Date.now() - lastChecked > 14 * 24 * 60 * 60 * 1000) {
+        log('Resetting dl preference');
+        preference.set('');
+
+        localStorage.setItem(DL_PREF_LAST_SET_KEY, Date.now());
+        dlPreference = '';
+    }
 
     const isTargetImage = (e) => e.target.tagName === 'IMG' && e.target.src;
     const isImageOnlyPage = Boolean(document.body) && document.querySelector('body img') === document.body.lastChild;
@@ -230,11 +240,9 @@ shift + RMB: Close the tab.
     }
 
     async function testIframe() {
-        const TEST_FRAME_CLASSNAME = 'iframe-image-dl-hack-test';
         const OPEN_IFRAME_MESSAGE = 'userscript_open_image_dl_frame';
 
         const iframe = document.createElement('iframe');
-        iframe.className = TEST_FRAME_CLASSNAME;
         iframe.style.display = 'none';
 
         iframe.srcdoc = `<!doctype html><script>window.parent.postMessage("${OPEN_IFRAME_MESSAGE}", "*");<\/script>`;
@@ -242,6 +250,7 @@ shift + RMB: Close the tab.
         return new Promise((resolve) => {
             function cleanup(success) {
                 window.removeEventListener('message', onMessage);
+                document.body.removeChild(iframe);
                 resolve(success);
             }
 
@@ -323,7 +332,7 @@ shift + RMB: Close the tab.
                     current = current.padStart(last.length, '0');
                     name = `${galleryTitle} (${current} of ${last}) ` + name;
                 } catch (error) {
-                    error(error);
+                    console.error(error);
                 }
 
                 break;
@@ -336,7 +345,7 @@ shift + RMB: Close the tab.
                         name = `twitter_${userTag}_${postId}_` + name;
                     }
                 } catch (error) {
-                    error(error);
+                    console.error(error);
                 }
 
                 break;
@@ -409,7 +418,7 @@ shift + RMB: Close the tab.
                 return true;
             })
             .catch((error) => {
-                error('Error downloading the file with fetch:', error);
+                console.error('Error downloading the file with fetch:', error);
                 return false;
             });
     }
@@ -522,11 +531,13 @@ shift + RMB: Close the tab.
 
         // for same origin download with A tag since it's faster than waiting for onload
         if (isSameOrigin(window.location.href, url)) {
+            log('dl: plain');
             return download.plain();
         }
 
         if (dlPreference && Object.keys(download).includes(dlPreference)) {
             try {
+                log('dl: pref |', dlPreference);
                 const result = await download[dlPreference]();
                 if (result === true || result?.success === true) return;
             } catch (error) {
@@ -535,11 +546,12 @@ shift + RMB: Close the tab.
         }
 
         // try fetch first, chances are it works fine without CORS
+        log('dl: fetch');
         if (await download.fetch()) {
             return preference.set('fetch');
         }
 
-        log('Cross origin, using GM_download');
+        log('dl: GM_download');
         const { error, success } = await download.gm().catch((error) => ({ error }));
         if (success) {
             return preference.set('gm');
@@ -549,11 +561,13 @@ shift + RMB: Close the tab.
 
         if (error.error === 'not_whitelisted') {
             log('Image is possibly webp, trying download with <a> element');
+            log('dl: plain');
             preference.set('');
             return download.plain();
         }
 
         log('As a last resort, trying to download image via iframe to avoid CORS');
+        log('dl: iframe      ');
         const isIFrameAllowed = await testIframe();
         if (isIFrameAllowed) {
             await download.iframe();
