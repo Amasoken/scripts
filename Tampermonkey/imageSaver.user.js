@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         Open/save images with RMB without prompt on Gelbooru/Danbooru/etc
 // @namespace    https://github.com/Amasoken/scripts
-// @version      2026-11-04
+// @version      2026-11-05
 // @description  interact with images using RMB and modifier keys
 // @author       Amasoken
 // @match        http*://*/*
@@ -39,6 +39,10 @@ shift + RMB: Close the tab.
 (function () {
     'use strict';
 
+    function log(...args) {
+        console.log(`<imageSaver> [${new Date().toLocaleTimeString()}]`, ...args);
+    }
+
     const DEFAULT_DOWNLOAD_NAME = 'download';
     const AVAILABLE_EXTENSIONS = ['gif', 'ico', 'jpeg', 'jpg', 'png', 'webp'];
 
@@ -49,6 +53,8 @@ shift + RMB: Close the tab.
 
     const GALLERY_NAME_LIMIT = 110;
 
+    const isCORSHackUsed = document.contentType.startsWith('image/') && window.self !== window.top;
+
     // sites as pixiv will block requests with no refferer with 403 error, so keep the refferer for these
     const KEEP_REFFERER_ORIGINS_LIST = ['https://www.pixiv.net', 'https://hitomi.la'];
     const USERSCRIPT_SETTINGS_KEY = 'userscript-image-saver-config';
@@ -57,11 +63,11 @@ shift + RMB: Close the tab.
     const preference = {
         get: () => {
             const pref = localStorage.getItem(USERSCRIPT_SETTINGS_KEY) ?? '';
-            console.log('Got dl preference:', { pref });
+            !isCORSHackUsed && log('Got dl preference:', { pref });
             return pref;
         },
         set: (data) => {
-            console.log('Set dl preference to', data);
+            log('Set dl preference to', data);
             dlPreference = data;
             localStorage.setItem(USERSCRIPT_SETTINGS_KEY, data);
         },
@@ -78,13 +84,12 @@ shift + RMB: Close the tab.
     const CLOSE_IFRAME_MESSAGE = 'userscript_close_image_dl_frame';
     const IFRAME_CLASSNAME = 'iframe-image-dl-hack';
 
-    const isCORSHackUsed = document.contentType.startsWith('image/') && window.self !== window.top;
     const originList = [];
     let isUsingIFrames = false;
 
     if (isCORSHackUsed) {
         if (document.querySelector('body img')?.src === window.location.href) {
-            console.log('CORS hack detected, trying to download...');
+            log('CORS hack detected, trying to download...');
             const shouldCloseTab = true;
             saveImage(window.location.href, shouldCloseTab);
         }
@@ -173,7 +178,7 @@ shift + RMB: Close the tab.
         const isSingleKeyPressed = ctrlKey + altKey + shiftKey === 1;
         if (!isSingleKeyPressed) return;
 
-        console.log('Click with keys detected: ', { ctrlKey, altKey, shiftKey });
+        log('Click with keys detected: ', { ctrlKey, altKey, shiftKey });
 
         // ctrl + RMB click
         if (ctrlKey) {
@@ -243,13 +248,13 @@ shift + RMB: Close the tab.
             const t0 = performance.now();
 
             const timeout = setTimeout(() => {
-                console.log('iframe: blocked');
+                log('iframe: blocked');
                 cleanup(false);
             }, 1000);
 
             function onMessage(event) {
                 if (event.source === iframe.contentWindow && event.data === OPEN_IFRAME_MESSAGE) {
-                    console.log('iframe: ok', performance.now() - t0);
+                    log('iframe: ok', performance.now() - t0);
                     clearTimeout(timeout);
                     cleanup(true);
                 }
@@ -304,7 +309,7 @@ shift + RMB: Close the tab.
             name = splitName.join('.');
 
             if (ext !== originalExt) {
-                console.log('Extension mismatch', { ext, originalExt });
+                log('Extension mismatch', { ext, originalExt });
                 ext = originalExt;
             }
         }
@@ -318,7 +323,7 @@ shift + RMB: Close the tab.
                     current = current.padStart(last.length, '0');
                     name = `${galleryTitle} (${current} of ${last}) ` + name;
                 } catch (error) {
-                    console.error(error);
+                    error(error);
                 }
 
                 break;
@@ -331,7 +336,7 @@ shift + RMB: Close the tab.
                         name = `twitter_${userTag}_${postId}_` + name;
                     }
                 } catch (error) {
-                    console.error(error);
+                    error(error);
                 }
 
                 break;
@@ -404,7 +409,7 @@ shift + RMB: Close the tab.
                 return true;
             })
             .catch((error) => {
-                console.error('Error downloading the file with fetch:', error);
+                error('Error downloading the file with fetch:', error);
                 return false;
             });
     }
@@ -513,7 +518,7 @@ shift + RMB: Close the tab.
         url = adjustUrlIfNeeded(url);
         const fileName = getFileName(url);
         const download = downloadFn({ url, shouldCloseTab, fileName });
-        console.log('Trying to save image', { fileName, url });
+        log('Trying to save image', { fileName, url });
 
         // for same origin download with A tag since it's faster than waiting for onload
         if (isSameOrigin(window.location.href, url)) {
@@ -525,7 +530,7 @@ shift + RMB: Close the tab.
                 const result = await download[dlPreference]();
                 if (result === true || result?.success === true) return;
             } catch (error) {
-                console.log('got error downloading with preffered method::', error);
+                log('got error downloading with preffered method::', error);
             }
         }
 
@@ -534,21 +539,21 @@ shift + RMB: Close the tab.
             return preference.set('fetch');
         }
 
-        console.log('Cross origin, using GM_download');
+        log('Cross origin, using GM_download');
         const { error, success } = await download.gm().catch((error) => ({ error }));
         if (success) {
             return preference.set('gm');
         }
 
-        console.log('got error::', error);
+        log('got error::', error);
 
         if (error.error === 'not_whitelisted') {
-            console.log('Image is possibly webp, trying download with <a> element');
+            log('Image is possibly webp, trying download with <a> element');
             preference.set('');
             return download.plain();
         }
 
-        console.log('As a last resort, trying to download image via iframe to avoid CORS');
+        log('As a last resort, trying to download image via iframe to avoid CORS');
         const isIFrameAllowed = await testIframe();
         if (isIFrameAllowed) {
             await download.iframe();
@@ -556,7 +561,7 @@ shift + RMB: Close the tab.
             return;
         }
 
-        console.log('Failed to download the image');
+        log('Failed to download the image');
     }
 })();
 
