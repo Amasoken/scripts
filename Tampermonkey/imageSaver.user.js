@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         Open/save images with RMB without prompt on Gelbooru/Danbooru/etc
 // @namespace    https://github.com/Amasoken/scripts
-// @version      2026-07-04
+// @version      2026-11-04
 // @description  interact with images using RMB and modifier keys
 // @author       Amasoken
 // @match        http*://*/*
@@ -57,7 +57,7 @@ shift + RMB: Close the tab.
     const preference = {
         get: () => {
             const pref = localStorage.getItem(USERSCRIPT_SETTINGS_KEY) ?? '';
-            console.log('Got dl preference:', pref);
+            console.log('Got dl preference:', { pref });
             return pref;
         },
         set: (data) => {
@@ -74,18 +74,17 @@ shift + RMB: Close the tab.
 
     // === last resort CORS hack check ===
     // when site stores images on a different domain, CORS might prevent fetch from downloading the image
-    // add a query string param, open in the new tab, then try to download:
-    const CORS_HACK_PARAM = 'abcdef'; // query param to check for.
+    // try to download via iframe
     const CLOSE_IFRAME_MESSAGE = 'userscript_close_image_dl_frame';
     const IFRAME_CLASSNAME = 'iframe-image-dl-hack';
 
-    const isCORSHackUsed = window.location.search.includes(CORS_HACK_PARAM + '=');
+    const isCORSHackUsed = document.contentType.startsWith('image/') && window.self !== window.top;
     const originList = [];
     let isUsingIFrames = false;
 
     if (isCORSHackUsed) {
         if (document.querySelector('body img')?.src === window.location.href) {
-            console.log('CORS hack query param detected, trying to download...');
+            console.log('CORS hack detected, trying to download...');
             const shouldCloseTab = true;
             saveImage(window.location.href, shouldCloseTab);
         }
@@ -223,6 +222,43 @@ shift + RMB: Close the tab.
         iframe.style.display = 'none';
 
         document.body.appendChild(iframe);
+    }
+
+    async function testIframe() {
+        const TEST_FRAME_CLASSNAME = 'iframe-image-dl-hack-test';
+        const OPEN_IFRAME_MESSAGE = 'userscript_open_image_dl_frame';
+
+        const iframe = document.createElement('iframe');
+        iframe.className = TEST_FRAME_CLASSNAME;
+        iframe.style.display = 'none';
+
+        iframe.srcdoc = `<!doctype html><script>window.parent.postMessage("${OPEN_IFRAME_MESSAGE}", "*");<\/script>`;
+
+        return new Promise((resolve) => {
+            function cleanup(success) {
+                window.removeEventListener('message', onMessage);
+                resolve(success);
+            }
+
+            const t0 = performance.now();
+
+            const timeout = setTimeout(() => {
+                console.log('iframe: blocked');
+                cleanup(false);
+            }, 1000);
+
+            function onMessage(event) {
+                if (event.source === iframe.contentWindow && event.data === OPEN_IFRAME_MESSAGE) {
+                    console.log('iframe: ok', performance.now() - t0);
+                    clearTimeout(timeout);
+                    cleanup(true);
+                }
+            }
+
+            window.addEventListener('message', onMessage);
+
+            document.body.appendChild(iframe);
+        });
     }
 
     function openInNewWindow(imageUrl) {
@@ -380,7 +416,6 @@ shift + RMB: Close the tab.
         }
 
         const imageUrl = new URL(url);
-        imageUrl.searchParams.append(CORS_HACK_PARAM, '');
 
         if (!originList.includes(imageUrl.origin)) originList.push(imageUrl.origin);
 
@@ -514,8 +549,14 @@ shift + RMB: Close the tab.
         }
 
         console.log('As a last resort, trying to download image via iframe to avoid CORS');
-        download.iframe();
-        return preference.set('iframe');
+        const isIFrameAllowed = await testIframe();
+        if (isIFrameAllowed) {
+            await download.iframe();
+            preference.set('iframe');
+            return;
+        }
+
+        console.log('Failed to download the image');
     }
 })();
 
